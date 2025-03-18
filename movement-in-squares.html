@@ -134,6 +134,11 @@
             distortionExponentValue.textContent = distortionExponent.toFixed(1);
         }
         
+        // Gaussian-like curve function
+        function gaussianCurve(x, sigma = 0.3) {
+            return Math.exp(-(x * x) / (2 * sigma * sigma));
+        }
+        
         // Function to draw the artwork
         function drawMovementInSquares() {
             // Clear canvas
@@ -148,35 +153,71 @@
             // Calculate cell size
             const cellSize = canvas.width / gridSize;
             
-            // Draw the grid
-            for (let x = 0; x < gridSize; x++) {
-                for (let y = 0; y < gridSize; y++) {
-                    // Calculate position for this square
-                    const posX = x * cellSize;
-                    const posY = y * cellSize;
+            // Draw black background first to ensure full coverage
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Pre-calculate the positions of all grid points with distortion
+            const positions = [];
+            
+            // Add extra columns on each side to overflow
+            const extraColumns = Math.ceil(gridSize * 1.2); // 120% more squares on each side
+            const totalColumns = gridSize + (extraColumns * 2);
+            
+            // Calculate the distorted x positions for each column, including overflow
+            for (let x = -extraColumns; x <= gridSize + extraColumns; x++) {
+                // Calculate normalized position (0 to 1)
+                const normalizedX = x / gridSize;
+                
+                // Distance from center (0 to 1)
+                const distanceFromCenter = Math.abs(normalizedX - distortionCenter);
+                
+                // Direction multiplier (-1 for left of center, 1 for right)
+                const direction = Math.sign(normalizedX - distortionCenter);
+                
+                // Base undistorted position
+                let transformedX = normalizedX;
+                
+                // Apply distortion only if not at exact center
+                if (distanceFromCenter > 0) {
+                    // Use Gaussian curve for smoother compression near the center
+                    const gaussianFactor = gaussianCurve(distanceFromCenter, 0.4);
                     
-                    // Calculate distortion for this square
-                    // The closer to the distortion center, the more distorted
-                    const relativeX = x / gridSize;
-                    const distanceFromCenter = Math.abs(relativeX - distortionCenter);
-                    const normalizedDistance = Math.min(1, distanceFromCenter * 2);
+                    // Combine with power curve for edge behavior
+                    const powerFactor = Math.pow(1 - distanceFromCenter, distortionExponent);
                     
-                    // Apply nonlinear distortion using the exponent
-                    const distortionAmount = Math.pow(1 - normalizedDistance, distortionExponent) * distortionFactor;
+                    // Blend both curves for a more rounded effect
+                    const compressionStrength = (gaussianFactor * 0.7 + powerFactor * 0.3) * distortionFactor;
                     
-                    // Calculate the distorted width
-                    let width = cellSize * (1 - distortionAmount);
-                    if (width < 1) width = 1; // Minimum width of 1px
-                    
-                    // Determine color (checkerboard pattern)
-                    if ((x + y) % 2 === 0) {
-                        ctx.fillStyle = 'black';
+                    // Apply compression toward center with enhanced curve
+                    if (direction < 0) {
+                        transformedX = normalizedX + (distanceFromCenter * compressionStrength);
                     } else {
-                        ctx.fillStyle = 'white';
+                        transformedX = normalizedX - (distanceFromCenter * compressionStrength);
                     }
+                }
+                
+                // Convert normalized position to canvas coordinates
+                const position = transformedX * canvas.width;
+                positions.push(position);
+            }
+            
+            // Draw the grid - white squares only (black background already drawn)
+            for (let x = 0; x < positions.length - 1; x++) {
+                for (let y = 0; y < gridSize; y++) {
+                    const x1 = positions[x];
+                    const x2 = positions[x + 1];
+                    const y1 = y * cellSize;
+                    const y2 = (y + 1) * cellSize;
                     
-                    // Draw the square
-                    ctx.fillRect(posX, posY, width, cellSize);
+                    const width = x2 - x1;
+                    
+                    // Draw only white squares over black background
+                    // Adjust the checkerboard pattern for the extra columns
+                    if (((x + extraColumns) + y) % 2 !== 0) {
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(x1, y1, width, cellSize);
+                    }
                 }
             }
         }
