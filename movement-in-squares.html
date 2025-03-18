@@ -44,6 +44,12 @@
             width: 100%;
         }
         
+        select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        
         .value-display {
             font-size: 0.8em;
             color: #666;
@@ -64,6 +70,36 @@
             background-color: #fff;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .animation-controls {
+            background-color: #f0f8ff;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .animation-params {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-top: 15px;
         }
     </style>
 </head>
@@ -96,11 +132,42 @@
         </div>
     </div>
     
+    <div class="animation-controls">
+        <div class="control-group">
+            <label for="movementType">Distortion Movement</label>
+            <select id="movementType">
+                <option value="static">Static (No Movement)</option>
+                <option value="random">Random Walk</option>
+                <option value="sine">Sine Wave</option>
+                <option value="triangle">Triangle Wave</option>
+                <option value="square">Square Wave</option>
+                <option value="audio">Audio Visualizer</option>
+            </select>
+        </div>
+        
+        <div class="animation-params">
+            <div class="control-group">
+                <label for="movementSpeed">Movement Speed</label>
+                <input type="range" id="movementSpeed" min="1" max="100" value="30">
+                <div class="value-display" id="movementSpeedValue">30%</div>
+            </div>
+            
+            <div class="control-group">
+                <label for="movementRange">Movement Range</label>
+                <input type="range" id="movementRange" min="1" max="100" value="50">
+                <div class="value-display" id="movementRangeValue">50%</div>
+            </div>
+        </div>
+        
+        <button id="startAudio">Start Audio Visualizer</button>
+        <button id="stopAnimation">Stop Movement</button>
+    </div>
+    
     <canvas id="canvas" width="800" height="800"></canvas>
     
     <div class="info">
         <p>This is an interactive recreation of Bridget Riley's "Movement in Squares" (1961), a famous op art piece. The original artwork creates an illusion of movement through the gradual distortion of a grid of black and white squares.</p>
-        <p>Use the sliders above to adjust various parameters and create your own version of this iconic piece.</p>
+        <p>Use the sliders above to adjust various parameters and create your own version of this iconic piece. You can also enable dynamic movement of the distortion center using different patterns or audio input.</p>
     </div>
     
     <script>
@@ -112,12 +179,30 @@
         const distortionFactorControl = document.getElementById('distortionFactor');
         const distortionCenterControl = document.getElementById('distortionCenter');
         const distortionExponentControl = document.getElementById('distortionExponent');
+        const movementTypeSelect = document.getElementById('movementType');
+        const movementSpeedControl = document.getElementById('movementSpeed');
+        const movementRangeControl = document.getElementById('movementRange');
+        const startAudioButton = document.getElementById('startAudio');
+        const stopAnimationButton = document.getElementById('stopAnimation');
         
         // Get all value displays
         const gridSizeValue = document.getElementById('gridSizeValue');
         const distortionFactorValue = document.getElementById('distortionFactorValue');
         const distortionCenterValue = document.getElementById('distortionCenterValue');
         const distortionExponentValue = document.getElementById('distortionExponentValue');
+        const movementSpeedValue = document.getElementById('movementSpeedValue');
+        const movementRangeValue = document.getElementById('movementRangeValue');
+        
+        // Animation variables
+        let animationFrameId = null;
+        let lastTimestamp = 0;
+        let currentDistortionCenter = 0.5; // Start at 50%
+        let randomWalkVelocity = 0;
+        let oscillatorPhase = 0;
+        let audioContext = null;
+        let audioAnalyser = null;
+        let audioDataArray = null;
+        let audioSource = null;
         
         // Function to update value displays
         function updateValueDisplays() {
@@ -132,6 +217,12 @@
             
             const distortionExponent = parseFloat(distortionExponentControl.value);
             distortionExponentValue.textContent = distortionExponent.toFixed(1);
+            
+            const movementSpeed = parseInt(movementSpeedControl.value);
+            movementSpeedValue.textContent = `${movementSpeed}%`;
+            
+            const movementRange = parseInt(movementRangeControl.value);
+            movementRangeValue.textContent = `${movementRange}%`;
         }
         
         // Gaussian-like curve function
@@ -140,15 +231,18 @@
         }
         
         // Function to draw the artwork
-        function drawMovementInSquares() {
+        function drawMovementInSquares(dynamicDistortionCenter = null) {
             // Clear canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
             // Get parameter values
             const gridSize = parseInt(gridSizeControl.value);
             const distortionFactor = parseInt(distortionFactorControl.value) / 100;
-            const distortionCenter = parseInt(distortionCenterControl.value) / 100;
             const distortionExponent = parseFloat(distortionExponentControl.value);
+            
+            // Use dynamic distortion center if provided, otherwise use the slider value
+            const distortionCenter = dynamicDistortionCenter !== null ? 
+                dynamicDistortionCenter : parseInt(distortionCenterControl.value) / 100;
             
             // Calculate cell size
             const cellSize = canvas.width / gridSize;
@@ -161,7 +255,7 @@
             const positions = [];
             
             // Add extra columns on each side to overflow
-            const extraColumns = Math.ceil(gridSize * 1.2); // 120% more squares on each side
+            const extraColumns = Math.ceil(gridSize * 0.2); // 20% more squares on each side
             const totalColumns = gridSize + (extraColumns * 2);
             
             // Calculate the distorted x positions for each column, including overflow
@@ -222,6 +316,155 @@
             }
         }
         
+        // Function to update movement based on the selected mode
+        function updateMovement(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const deltaTime = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+            
+            const movementType = movementTypeSelect.value;
+            const movementSpeed = parseInt(movementSpeedControl.value) / 100 * 2;
+            const movementRange = parseInt(movementRangeControl.value) / 100;
+            
+            // Maximum range is 0.5 on each side of the center (0.5)
+            const maxRange = 0.5 * movementRange;
+            const centerPoint = 0.5;
+            
+            // Update based on movement type
+            switch(movementType) {
+                case 'random':
+                    // Random walk with inertia
+                    const randomAcceleration = (Math.random() - 0.5) * movementSpeed * 5;
+                    randomWalkVelocity += randomAcceleration * deltaTime;
+                    randomWalkVelocity *= 0.95; // Damping
+                    
+                    currentDistortionCenter += randomWalkVelocity * deltaTime;
+                    
+                    // Bounce off boundaries
+                    if (currentDistortionCenter < centerPoint - maxRange || 
+                        currentDistortionCenter > centerPoint + maxRange) {
+                        randomWalkVelocity = -randomWalkVelocity * 0.8;
+                        currentDistortionCenter = Math.max(centerPoint - maxRange, 
+                                                  Math.min(centerPoint + maxRange, currentDistortionCenter));
+                    }
+                    break;
+                    
+                case 'sine':
+                    // Sine wave oscillator
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    currentDistortionCenter = centerPoint + Math.sin(oscillatorPhase) * maxRange;
+                    break;
+                    
+                case 'triangle':
+                    // Triangle wave oscillator
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    const trianglePhase = (oscillatorPhase % (2 * Math.PI)) / (2 * Math.PI);
+                    const triangleValue = trianglePhase < 0.5 ? 
+                        (4 * trianglePhase - 1) : (3 - 4 * trianglePhase);
+                    currentDistortionCenter = centerPoint + triangleValue * maxRange;
+                    break;
+                    
+                case 'square':
+                    // Square wave oscillator
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    const squareValue = Math.sin(oscillatorPhase) >= 0 ? 1 : -1;
+                    currentDistortionCenter = centerPoint + squareValue * maxRange;
+                    break;
+                    
+                case 'audio':
+                    // Audio visualizer
+                    if (audioAnalyser) {
+                        audioAnalyser.getByteFrequencyData(audioDataArray);
+                        
+                        // Use average of bass frequencies for movement
+                        let bassAverage = 0;
+                        const bassSamples = Math.min(20, audioDataArray.length / 8);
+                        for (let i = 0; i < bassSamples; i++) {
+                            bassAverage += audioDataArray[i];
+                        }
+                        bassAverage /= bassSamples;
+                        
+                        // Map the bass average (0-255) to distortion center
+                        const normalizedBass = bassAverage / 255;
+                        currentDistortionCenter = centerPoint + (normalizedBass * 2 - 1) * maxRange;
+                    }
+                    break;
+                    
+                case 'static':
+                default:
+                    // Static position from slider
+                    currentDistortionCenter = parseInt(distortionCenterControl.value) / 100;
+                    break;
+            }
+            
+            // Draw with the updated distortion center
+            drawMovementInSquares(currentDistortionCenter);
+            
+            // Continue animation loop
+            if (movementType !== 'static') {
+                animationFrameId = requestAnimationFrame(updateMovement);
+            }
+        }
+        
+        // Function to start animation
+        function startAnimation() {
+            // Stop any existing animation
+            stopAnimation();
+            
+            // Reset animation variables
+            lastTimestamp = 0;
+            
+            // Start the new animation loop
+            animationFrameId = requestAnimationFrame(updateMovement);
+        }
+        
+        // Function to stop animation
+        function stopAnimation() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            
+            // Return to static rendering with slider value
+            drawMovementInSquares();
+        }
+        
+        // Function to initialize audio context
+        async function initAudio() {
+            try {
+                // Create audio context if needed
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    audioAnalyser = audioContext.createAnalyser();
+                    audioAnalyser.fftSize = 256;
+                    const bufferLength = audioAnalyser.frequencyBinCount;
+                    audioDataArray = new Uint8Array(bufferLength);
+                }
+                
+                // Get user media
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Stop any existing audio source
+                if (audioSource) {
+                    audioSource.disconnect();
+                }
+                
+                // Create new audio source
+                audioSource = audioContext.createMediaStreamSource(stream);
+                audioSource.connect(audioAnalyser);
+                
+                // Set movement type to audio
+                movementTypeSelect.value = 'audio';
+                
+                // Start animation
+                startAnimation();
+                
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                alert('Could not access microphone. Audio visualizer requires microphone permission.');
+            }
+        }
+        
         // Add event listeners
         gridSizeControl.addEventListener('input', () => {
             updateValueDisplays();
@@ -236,11 +479,29 @@
         distortionCenterControl.addEventListener('input', () => {
             updateValueDisplays();
             drawMovementInSquares();
+            currentDistortionCenter = parseInt(distortionCenterControl.value) / 100;
         });
         
         distortionExponentControl.addEventListener('input', () => {
             updateValueDisplays();
             drawMovementInSquares();
+        });
+        
+        movementSpeedControl.addEventListener('input', updateValueDisplays);
+        movementRangeControl.addEventListener('input', updateValueDisplays);
+        
+        movementTypeSelect.addEventListener('change', () => {
+            if (movementTypeSelect.value !== 'static') {
+                startAnimation();
+            } else {
+                stopAnimation();
+            }
+        });
+        
+        startAudioButton.addEventListener('click', initAudio);
+        stopAnimationButton.addEventListener('click', () => {
+            movementTypeSelect.value = 'static';
+            stopAnimation();
         });
         
         // Initial draw
