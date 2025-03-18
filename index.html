@@ -5,174 +5,341 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Movement in Squares - Interactive</title>
     <style>
+        :root {
+            --primary-color: #e3342f;
+            --text-color: #333333;
+            --bg-color: #f5f5f5;
+            --panel-bg: rgba(255, 255, 255, 0.85);
+            --control-height: 36px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
-            max-width: 900px;
-            margin: 0 auto;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+            background-color: black;
+            color: var(--text-color);
+        }
+        
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        .controls-container {
+            position: fixed;
+            top: 0;
+            right: 0;
+            z-index: 10;
+            transition: transform 0.3s ease;
+        }
+        
+        .controls-container.collapsed {
+            transform: translateX(calc(100% - 48px));
+        }
+        
+        .toggle-controls {
+            position: absolute;
+            left: 0;
+            top: 20px;
+            width: 48px;
+            height: 48px;
+            background-color: var(--primary-color);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .toggle-controls::before,
+        .toggle-controls::after {
+            content: '';
+            display: block;
+            background-color: white;
+            position: absolute;
+            transition: transform 0.3s ease;
+        }
+        
+        .toggle-controls::before {
+            width: 24px;
+            height: 3px;
+        }
+        
+        .toggle-controls::after {
+            width: 3px;
+            height: 24px;
+        }
+        
+        .collapsed .toggle-controls::after {
+            transform: rotate(90deg);
+        }
+        
+        .controls-panel {
+            background-color: var(--panel-bg);
+            backdrop-filter: blur(10px);
             padding: 20px;
-            background-color: #f5f5f5;
+            width: 320px;
+            max-height: 100vh;
+            overflow-y: auto;
+            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
         }
         
         h1 {
-            text-align: center;
-            margin-bottom: 30px;
+            font-size: 24px;
+            margin-bottom: 20px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
+            color: var(--primary-color);
         }
         
-        .controls {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            margin-bottom: 20px;
-            padding: 15px;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        .control-section {
+            margin-bottom: 30px;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 15px;
+        }
+        
+        .section-title {
+            font-size: 16px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         
         .control-group {
             display: flex;
             flex-direction: column;
-            min-width: 150px;
+            margin-bottom: 15px;
         }
         
         label {
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        
-        input[type="range"] {
-            width: 100%;
-        }
-        
-        select {
-            padding: 5px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
+            font-size: 14px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
         }
         
         .value-display {
-            font-size: 0.8em;
-            color: #666;
-            text-align: center;
-            margin-top: 5px;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--primary-color);
         }
         
-        canvas {
-            display: block;
-            margin: 0 auto;
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            background: #ddd;
+            outline: none;
+            border-radius: 0;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--primary-color);
+            cursor: pointer;
+            border: none;
+            border-radius: 0;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--primary-color);
+            cursor: pointer;
+            border: none;
+            border-radius: 0;
+        }
+        
+        select {
+            appearance: none;
+            height: var(--control-height);
+            padding: 0 10px;
             background-color: white;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+            border: 2px solid #ddd;
+            border-radius: 0;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
         }
         
-        .info {
-            margin-top: 30px;
-            padding: 15px;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        .animation-controls {
-            background-color: #f0f8ff;
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        select:focus {
+            border-color: var(--primary-color);
         }
         
         button {
-            padding: 8px 16px;
-            background-color: #4CAF50;
+            height: var(--control-height);
+            padding: 0 16px;
+            background-color: black;
             color: white;
             border: none;
-            border-radius: 4px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
             cursor: pointer;
-            margin-right: 10px;
-            margin-top: 10px;
+            margin-right: 8px;
+            transition: background-color 0.2s;
         }
         
         button:hover {
-            background-color: #45a049;
+            background-color: var(--primary-color);
         }
         
-        .animation-params {
+        .button-group {
             display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            margin-top: 15px;
+            gap: 10px;
+        }
+        
+        .info-box {
+            font-size: 13px;
+            line-height: 1.5;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.05);
         }
     </style>
 </head>
 <body>
-    <h1>Movement in Squares - Interactive</h1>
+    <canvas id="canvas"></canvas>
     
-    <div class="controls">
-        <div class="control-group">
-            <label for="gridSize">Grid Size</label>
-            <input type="range" id="gridSize" min="5" max="40" value="20">
-            <div class="value-display" id="gridSizeValue">20 × 20</div>
-        </div>
-        
-        <div class="control-group">
-            <label for="distortionFactor">Distortion Factor</label>
-            <input type="range" id="distortionFactor" min="0" max="100" value="80">
-            <div class="value-display" id="distortionFactorValue">80%</div>
-        </div>
-        
-        <div class="control-group">
-            <label for="distortionCenter">Distortion Center</label>
-            <input type="range" id="distortionCenter" min="0" max="100" value="50">
-            <div class="value-display" id="distortionCenterValue">50%</div>
-        </div>
-        
-        <div class="control-group">
-            <label for="distortionExponent">Distortion Curve</label>
-            <input type="range" id="distortionExponent" min="1" max="5" value="2" step="0.1">
-            <div class="value-display" id="distortionExponentValue">2.0</div>
-        </div>
-    </div>
-    
-    <div class="animation-controls">
-        <div class="control-group">
-            <label for="movementType">Distortion Movement</label>
-            <select id="movementType">
-                <option value="static">Static (No Movement)</option>
-                <option value="random">Random Walk</option>
-                <option value="sine">Sine Wave</option>
-                <option value="triangle">Triangle Wave</option>
-                <option value="square">Square Wave</option>
-                <option value="audio">Audio Visualizer</option>
-            </select>
-        </div>
-        
-        <div class="animation-params">
-            <div class="control-group">
-                <label for="movementSpeed">Movement Speed</label>
-                <input type="range" id="movementSpeed" min="1" max="100" value="30">
-                <div class="value-display" id="movementSpeedValue">30%</div>
+    <div class="controls-container">
+        <button class="toggle-controls" aria-label="Toggle controls panel"></button>
+        <div class="controls-panel">
+            <h1>Movement in Squares</h1>
+            
+            <div class="control-section">
+                <h2 class="section-title">Appearance</h2>
+                <div class="control-group">
+                    <label for="gridSize">Grid Size <span class="value-display" id="gridSizeValue">20 × 20</span></label>
+                    <input type="range" id="gridSize" min="5" max="40" value="20">
+                </div>
+                
+                <div class="control-group">
+                    <label for="distortionFactor">Distortion Factor <span class="value-display" id="distortionFactorValue">80%</span></label>
+                    <input type="range" id="distortionFactor" min="0" max="100" value="80">
+                </div>
+                
+                <div class="control-group">
+                    <label for="distortionCenter">Distortion Center <span class="value-display" id="distortionCenterValue">50%</span></label>
+                    <input type="range" id="distortionCenter" min="0" max="100" value="50">
+                </div>
+                
+                <div class="control-group">
+                    <label for="distortionExponent">Distortion Curve <span class="value-display" id="distortionExponentValue">2.0</span></label>
+                    <input type="range" id="distortionExponent" min="1" max="5" value="2" step="0.1">
+                </div>
             </div>
             
-            <div class="control-group">
-                <label for="movementRange">Movement Range</label>
-                <input type="range" id="movementRange" min="1" max="100" value="50">
-                <div class="value-display" id="movementRangeValue">50%</div>
+            <div class="control-section">
+                <h2 class="section-title">Animation</h2>
+                <div class="control-group">
+                    <label for="movementType">Distortion Movement</label>
+                    <select id="movementType">
+                        <option value="static">Static (No Movement)</option>
+                        <option value="random">Random Walk</option>
+                        <option value="sine">Sine Wave</option>
+                        <option value="triangle">Triangle Wave</option>
+                        <option value="square">Square Wave</option>
+                        <option value="audio">Audio Visualizer</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="movementSpeed">Movement Speed <span class="value-display" id="movementSpeedValue">30%</span></label>
+                    <input type="range" id="movementSpeed" min="1" max="100" value="30">
+                </div>
+                
+                <div class="control-group">
+                    <label for="movementRange">Movement Range <span class="value-display" id="movementRangeValue">50%</span></label>
+                    <input type="range" id="movementRange" min="1" max="100" value="50">
+                </div>
+                
+                <div class="button-group">
+                    <button id="startAudio">Audio Visualizer</button>
+                    <button id="stopAnimation">Stop Movement</button>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <p>Interactive recreation of Bridget Riley's "Movement in Squares" (1961). Adjust parameters or enable dynamic movement for different effects.</p>
             </div>
         </div>
-        
-        <button id="startAudio">Start Audio Visualizer</button>
-        <button id="stopAnimation">Stop Movement</button>
-    </div>
-    
-    <canvas id="canvas" width="800" height="800"></canvas>
-    
-    <div class="info">
-        <p>This is an interactive recreation of Bridget Riley's "Movement in Squares" (1961), a famous op art piece. The original artwork creates an illusion of movement through the gradual distortion of a grid of black and white squares.</p>
-        <p>Use the sliders above to adjust various parameters and create your own version of this iconic piece. You can also enable dynamic movement of the distortion center using different patterns or audio input.</p>
     </div>
     
     <script>
+        // Persist settings using localStorage
+        const SETTINGS_KEY = 'movementInSquaresSettings';
+        
+        // Function to save all settings
+        function saveSettings() {
+            const settings = {
+                gridSize: gridSizeControl.value,
+                distortionFactor: distortionFactorControl.value,
+                distortionCenter: distortionCenterControl.value,
+                distortionExponent: distortionExponentControl.value,
+                movementType: movementTypeSelect.value,
+                movementSpeed: movementSpeedControl.value,
+                movementRange: movementRangeControl.value
+            };
+            
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        }
+        
+        // Function to load settings
+        function loadSettings() {
+            const savedSettings = localStorage.getItem(SETTINGS_KEY);
+            
+            // Default settings
+            const defaultSettings = {
+                gridSize: "40",
+                distortionFactor: "100",
+                distortionCenter: "41",
+                distortionExponent: "1.2",
+                movementType: "sine",
+                movementSpeed: "10", 
+                movementRange: "7"
+            };
+            
+            // Use saved settings if available, otherwise use defaults
+            const settings = savedSettings ? JSON.parse(savedSettings) : defaultSettings;
+            
+            // Apply settings to controls
+            gridSizeControl.value = settings.gridSize;
+            distortionFactorControl.value = settings.distortionFactor;
+            distortionCenterControl.value = settings.distortionCenter;
+            distortionExponentControl.value = settings.distortionExponent;
+            movementTypeSelect.value = settings.movementType;
+            movementSpeedControl.value = settings.movementSpeed;
+            movementRangeControl.value = settings.movementRange;
+            
+            // Update displays
+            updateValueDisplays();
+            
+            // Initialize animation if needed
+            if (settings.movementType !== 'static') {
+                startAnimation();
+            }
+        }
+        
+        // Get DOM elements
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
+        const toggleControlsBtn = document.querySelector('.toggle-controls');
+        const controlsContainer = document.querySelector('.controls-container');
         
         // Get all controls
         const gridSizeControl = document.getElementById('gridSize');
@@ -204,6 +371,18 @@
         let audioDataArray = null;
         let audioSource = null;
         
+        // Make canvas fullscreen and handle resize
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            drawMovementInSquares(); // Redraw when resized
+        }
+        
+        // Toggle controls panel
+        toggleControlsBtn.addEventListener('click', () => {
+            controlsContainer.classList.toggle('collapsed');
+        });
+        
         // Function to update value displays
         function updateValueDisplays() {
             const gridSize = parseInt(gridSizeControl.value);
@@ -223,6 +402,9 @@
             
             const movementRange = parseInt(movementRangeControl.value);
             movementRangeValue.textContent = `${movementRange}%`;
+            
+            // Save settings whenever they change
+            saveSettings();
         }
         
         // Gaussian-like curve function
@@ -244,8 +426,9 @@
             const distortionCenter = dynamicDistortionCenter !== null ? 
                 dynamicDistortionCenter : parseInt(distortionCenterControl.value) / 100;
             
-            // Calculate cell size
-            const cellSize = canvas.width / gridSize;
+            // Calculate cell size based on the larger canvas dimension to maintain square aspect ratio
+            const dimension = Math.max(canvas.width, canvas.height);
+            const cellSize = dimension / gridSize;
             
             // Draw black background first to ensure full coverage
             ctx.fillStyle = 'black';
@@ -292,17 +475,21 @@
                 }
                 
                 // Convert normalized position to canvas coordinates
-                const position = transformedX * canvas.width;
+                const position = transformedX * dimension;
                 positions.push(position);
             }
+            
+            // Center the grid in the viewport
+            const xOffset = (canvas.width - dimension) / 2;
+            const yOffset = (canvas.height - dimension) / 2;
             
             // Draw the grid - white squares only (black background already drawn)
             for (let x = 0; x < positions.length - 1; x++) {
                 for (let y = 0; y < gridSize; y++) {
-                    const x1 = positions[x];
-                    const x2 = positions[x + 1];
-                    const y1 = y * cellSize;
-                    const y2 = (y + 1) * cellSize;
+                    const x1 = positions[x] + xOffset;
+                    const x2 = positions[x + 1] + xOffset;
+                    const y1 = (y * cellSize) + yOffset;
+                    const y2 = ((y + 1) * cellSize) + yOffset;
                     
                     const width = x2 - x1;
                     
@@ -455,6 +642,7 @@
                 
                 // Set movement type to audio
                 movementTypeSelect.value = 'audio';
+                saveSettings();
                 
                 // Start animation
                 startAnimation();
@@ -466,6 +654,8 @@
         }
         
         // Add event listeners
+        window.addEventListener('resize', resizeCanvas);
+        
         gridSizeControl.addEventListener('input', () => {
             updateValueDisplays();
             drawMovementInSquares();
@@ -491,6 +681,7 @@
         movementRangeControl.addEventListener('input', updateValueDisplays);
         
         movementTypeSelect.addEventListener('change', () => {
+            updateValueDisplays();
             if (movementTypeSelect.value !== 'static') {
                 startAnimation();
             } else {
@@ -499,14 +690,22 @@
         });
         
         startAudioButton.addEventListener('click', initAudio);
+        
         stopAnimationButton.addEventListener('click', () => {
             movementTypeSelect.value = 'static';
+            updateValueDisplays();
             stopAnimation();
         });
         
-        // Initial draw
+        // Initialize
+        resizeCanvas();
+        loadSettings();
         updateValueDisplays();
-        drawMovementInSquares();
+        
+        // Auto-collapse controls on mobile
+        if (window.innerWidth < 768) {
+            controlsContainer.classList.add('collapsed');
+        }
     </script>
 </body>
 </html> 
