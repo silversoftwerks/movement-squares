@@ -11,7 +11,6 @@
             --bg-color: #f5f5f5;
             --panel-bg: rgba(255, 255, 255, 0.85);
             --control-height: 36px;
-            --bottom-bar-height: 48px;
         }
         
         * {
@@ -38,95 +37,74 @@
         
         .controls-container {
             position: fixed;
-            bottom: 0;
-            left: 0;
+            top: 0;
             right: 0;
             z-index: 10;
             transition: transform 0.3s ease;
-            max-height: 70vh;
         }
         
         .controls-container.collapsed {
-            transform: translateY(calc(100% - var(--bottom-bar-height)));
-        }
-        
-        .bottom-bar {
-            width: 100%;
-            height: var(--bottom-bar-height);
-            background-color: rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            padding: 0 20px;
-            justify-content: space-between;
-            backdrop-filter: blur(10px);
-        }
-        
-        .title-area {
-            display: flex;
-            align-items: center;
-        }
-        
-        .title {
-            color: white;
-            font-size: 16px;
-            font-weight: 700;
-            letter-spacing: 1px;
-            margin-right: 15px;
-            text-transform: uppercase;
-        }
-        
-        .quick-controls {
-            display: flex;
-            align-items: center;
-            gap: 15px;
+            transform: translateX(calc(100% - 48px));
         }
         
         .toggle-controls {
-            width: 36px;
-            height: 36px;
+            position: absolute;
+            left: 0;
+            top: 20px;
+            width: 48px;
+            height: 48px;
             background-color: var(--primary-color);
             border: none;
             cursor: pointer;
-            position: relative;
             display: flex;
             justify-content: center;
             align-items: center;
         }
         
-        .toggle-controls::before {
+        .toggle-controls::before,
+        .toggle-controls::after {
             content: '';
             display: block;
-            border-style: solid;
-            border-width: 8px 6px 0 6px;
-            border-color: white transparent transparent transparent;
+            background-color: white;
+            position: absolute;
             transition: transform 0.3s ease;
         }
         
-        .collapsed .toggle-controls::before {
-            transform: rotate(180deg);
+        .toggle-controls::before {
+            width: 24px;
+            height: 3px;
+        }
+        
+        .toggle-controls::after {
+            width: 3px;
+            height: 24px;
+        }
+        
+        .collapsed .toggle-controls::after {
+            transform: rotate(90deg);
         }
         
         .controls-panel {
             background-color: var(--panel-bg);
             backdrop-filter: blur(10px);
             padding: 20px;
+            width: 320px;
+            max-height: 100vh;
             overflow-y: auto;
-            max-height: calc(70vh - var(--bottom-bar-height));
-            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
         }
         
-        .control-sections {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            justify-content: space-around;
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
+            color: var(--primary-color);
         }
         
         .control-section {
-            flex: 1;
-            min-width: 250px;
-            max-width: 400px;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
             border-left: 4px solid var(--primary-color);
             padding-left: 15px;
         }
@@ -203,14 +181,6 @@
             border-color: var(--primary-color);
         }
         
-        .bottom-bar select {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            height: 30px;
-            min-width: 150px;
-        }
-        
         button {
             height: var(--control-height);
             padding: 0 16px;
@@ -241,116 +211,71 @@
             padding: 10px;
             background-color: rgba(0, 0, 0, 0.05);
         }
-        
-        @media (max-width: 768px) {
-            .control-section {
-                min-width: 100%;
-            }
-            
-            .quick-controls {
-                gap: 8px;
-            }
-            
-            .title {
-                font-size: 14px;
-                margin-right: 8px;
-            }
-            
-            .bottom-bar {
-                padding: 0 10px;
-            }
-            
-            .bottom-bar select {
-                min-width: 120px;
-                max-width: 120px;
-                font-size: 12px;
-                padding: 0 5px;
-            }
-        }
     </style>
 </head>
 <body>
     <canvas id="canvas"></canvas>
     
-    <div class="controls-container collapsed">
-        <div class="bottom-bar">
-            <div class="title-area">
-                <div class="title">Movement in Squares</div>
-                <button class="toggle-controls" aria-label="Toggle controls panel"></button>
-            </div>
-            
-            <div class="quick-controls">
-                <select id="movementType-quick">
-                    <option value="static">Static</option>
-                    <option value="random">Random</option>
-                    <option value="sine">Sine</option>
-                    <option value="triangle">Triangle</option>
-                    <option value="square">Square</option>
-                    <option value="audio">Audio</option>
-                </select>
-                <button id="startAudio-quick">Audio</button>
-                <button id="stopAnimation-quick">Stop</button>
-            </div>
-        </div>
-        
+    <div class="controls-container">
+        <button class="toggle-controls" aria-label="Toggle controls panel"></button>
         <div class="controls-panel">
-            <div class="control-sections">
-                <div class="control-section">
-                    <h2 class="section-title">Appearance</h2>
-                    <div class="control-group">
-                        <label for="gridSize">Grid Size <span class="value-display" id="gridSizeValue">20 × 20</span></label>
-                        <input type="range" id="gridSize" min="5" max="40" value="20">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label for="distortionFactor">Distortion Factor <span class="value-display" id="distortionFactorValue">80%</span></label>
-                        <input type="range" id="distortionFactor" min="0" max="100" value="80">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label for="distortionCenter">Distortion Center <span class="value-display" id="distortionCenterValue">50%</span></label>
-                        <input type="range" id="distortionCenter" min="0" max="100" value="50">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label for="distortionExponent">Distortion Curve <span class="value-display" id="distortionExponentValue">2.0</span></label>
-                        <input type="range" id="distortionExponent" min="1" max="5" value="2" step="0.1">
-                    </div>
+            <h1>Movement in Squares</h1>
+            
+            <div class="control-section">
+                <h2 class="section-title">Appearance</h2>
+                <div class="control-group">
+                    <label for="gridSize">Grid Size <span class="value-display" id="gridSizeValue">20 × 20</span></label>
+                    <input type="range" id="gridSize" min="5" max="40" value="20">
                 </div>
                 
-                <div class="control-section">
-                    <h2 class="section-title">Animation</h2>
-                    <div class="control-group">
-                        <label for="movementType">Distortion Movement</label>
-                        <select id="movementType">
-                            <option value="static">Static (No Movement)</option>
-                            <option value="random">Random Walk</option>
-                            <option value="sine">Sine Wave</option>
-                            <option value="triangle">Triangle Wave</option>
-                            <option value="square">Square Wave</option>
-                            <option value="audio">Audio Visualizer</option>
-                        </select>
-                    </div>
-                    
-                    <div class="control-group">
-                        <label for="movementSpeed">Movement Speed <span class="value-display" id="movementSpeedValue">30%</span></label>
-                        <input type="range" id="movementSpeed" min="1" max="100" value="30">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label for="movementRange">Movement Range <span class="value-display" id="movementRangeValue">50%</span></label>
-                        <input type="range" id="movementRange" min="1" max="100" value="50">
-                    </div>
-                    
-                    <div class="button-group">
-                        <button id="startAudio">Audio Visualizer</button>
-                        <button id="stopAnimation">Stop Movement</button>
-                    </div>
-                    
-                    <div class="info-box">
-                        <p>Interactive recreation of Bridget Riley's "Movement in Squares" (1961). Adjust parameters or enable dynamic movement for different effects.</p>
-                    </div>
+                <div class="control-group">
+                    <label for="distortionFactor">Distortion Factor <span class="value-display" id="distortionFactorValue">80%</span></label>
+                    <input type="range" id="distortionFactor" min="0" max="100" value="80">
                 </div>
+                
+                <div class="control-group">
+                    <label for="distortionCenter">Distortion Center <span class="value-display" id="distortionCenterValue">50%</span></label>
+                    <input type="range" id="distortionCenter" min="0" max="100" value="50">
+                </div>
+                
+                <div class="control-group">
+                    <label for="distortionExponent">Distortion Curve <span class="value-display" id="distortionExponentValue">2.0</span></label>
+                    <input type="range" id="distortionExponent" min="1" max="5" value="2" step="0.1">
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h2 class="section-title">Animation</h2>
+                <div class="control-group">
+                    <label for="movementType">Distortion Movement</label>
+                    <select id="movementType">
+                        <option value="static">Static (No Movement)</option>
+                        <option value="random">Random Walk</option>
+                        <option value="sine">Sine Wave</option>
+                        <option value="triangle">Triangle Wave</option>
+                        <option value="square">Square Wave</option>
+                        <option value="audio">Audio Visualizer</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="movementSpeed">Movement Speed <span class="value-display" id="movementSpeedValue">30%</span></label>
+                    <input type="range" id="movementSpeed" min="1" max="100" value="30">
+                </div>
+                
+                <div class="control-group">
+                    <label for="movementRange">Movement Range <span class="value-display" id="movementRangeValue">50%</span></label>
+                    <input type="range" id="movementRange" min="1" max="100" value="50">
+                </div>
+                
+                <div class="button-group">
+                    <button id="startAudio">Audio Visualizer</button>
+                    <button id="stopAnimation">Stop Movement</button>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <p>Interactive recreation of Bridget Riley's "Movement in Squares" (1961). Adjust parameters or enable dynamic movement for different effects.</p>
             </div>
         </div>
     </div>
@@ -398,7 +323,6 @@
             distortionCenterControl.value = settings.distortionCenter;
             distortionExponentControl.value = settings.distortionExponent;
             movementTypeSelect.value = settings.movementType;
-            movementTypeQuickSelect.value = settings.movementType;
             movementSpeedControl.value = settings.movementSpeed;
             movementRangeControl.value = settings.movementRange;
             
@@ -423,13 +347,10 @@
         const distortionCenterControl = document.getElementById('distortionCenter');
         const distortionExponentControl = document.getElementById('distortionExponent');
         const movementTypeSelect = document.getElementById('movementType');
-        const movementTypeQuickSelect = document.getElementById('movementType-quick');
         const movementSpeedControl = document.getElementById('movementSpeed');
         const movementRangeControl = document.getElementById('movementRange');
         const startAudioButton = document.getElementById('startAudio');
-        const startAudioQuickButton = document.getElementById('startAudio-quick');
         const stopAnimationButton = document.getElementById('stopAnimation');
-        const stopAnimationQuickButton = document.getElementById('stopAnimation-quick');
         
         // Get all value displays
         const gridSizeValue = document.getElementById('gridSizeValue');
@@ -481,9 +402,6 @@
             
             const movementRange = parseInt(movementRangeControl.value);
             movementRangeValue.textContent = `${movementRange}%`;
-            
-            // Sync movement type between main and quick select
-            movementTypeQuickSelect.value = movementTypeSelect.value;
             
             // Save settings whenever they change
             saveSettings();
@@ -724,7 +642,6 @@
                 
                 // Set movement type to audio
                 movementTypeSelect.value = 'audio';
-                movementTypeQuickSelect.value = 'audio';
                 saveSettings();
                 
                 // Start animation
@@ -735,17 +652,6 @@
                 alert('Could not access microphone. Audio visualizer requires microphone permission.');
             }
         }
-        
-        // Set up movement type change from quick select
-        movementTypeQuickSelect.addEventListener('change', () => {
-            movementTypeSelect.value = movementTypeQuickSelect.value;
-            updateValueDisplays();
-            if (movementTypeSelect.value !== 'static') {
-                startAnimation();
-            } else {
-                stopAnimation();
-            }
-        });
         
         // Add event listeners
         window.addEventListener('resize', resizeCanvas);
@@ -784,28 +690,11 @@
         });
         
         startAudioButton.addEventListener('click', initAudio);
-        startAudioQuickButton.addEventListener('click', initAudio);
         
         stopAnimationButton.addEventListener('click', () => {
             movementTypeSelect.value = 'static';
-            movementTypeQuickSelect.value = 'static';
             updateValueDisplays();
             stopAnimation();
-        });
-        
-        stopAnimationQuickButton.addEventListener('click', () => {
-            movementTypeSelect.value = 'static';
-            movementTypeQuickSelect.value = 'static';
-            updateValueDisplays();
-            stopAnimation();
-        });
-        
-        // Allow tapping anywhere on the canvas to toggle controls on mobile
-        canvas.addEventListener('click', (e) => {
-            // Only handle this as a toggle if it's a simple tap (not drag, etc)
-            if (e.target === canvas && e.screenX === e.clientX && e.screenY === e.clientY) {
-                controlsContainer.classList.toggle('collapsed');
-            }
         });
         
         // Initialize
@@ -813,8 +702,10 @@
         loadSettings();
         updateValueDisplays();
         
-        // Default to collapsed controls
-        controlsContainer.classList.add('collapsed');
+        // Auto-collapse controls on mobile
+        if (window.innerWidth < 768) {
+            controlsContainer.classList.add('collapsed');
+        }
     </script>
 </body>
-</html>
+</html> 
