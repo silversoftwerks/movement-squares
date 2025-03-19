@@ -286,7 +286,18 @@
                     <option value="sine">Sine</option>
                     <option value="triangle">Triangle</option>
                     <option value="square">Square</option>
+                    <option value="sawtooth">Sawtooth</option>
+                    <option value="bounce">Bounce</option>
+                    <option value="perlin">Perlin</option>
+                    <option value="pulse">Pulse</option>
+                    <option value="pendulum">Pendulum</option>
+                    <option value="circular">Circular</option>
                     <option value="audio">Audio</option>
+                    <option value="lissajous">Lissajous</option>
+                    <option value="elastic">Elastic</option>
+                    <option value="multiwave">Multi-Wave</option>
+                    <option value="spiral">Spiral</option>
+                    <option value="chaotic">Chaotic</option>
                 </select>
                 <button id="startAudio-quick">Audio</button>
                 <button id="stopAnimation-quick">Stop</button>
@@ -316,6 +327,20 @@
                         <label for="distortionExponent">Distortion Curve <span class="value-display" id="distortionExponentValue">2.0</span></label>
                         <input type="range" id="distortionExponent" min="1" max="5" value="2" step="0.1">
                     </div>
+                    
+                    <div class="control-group">
+                        <label for="distortionCurveType">Distortion Curve Type</label>
+                        <select id="distortionCurveType">
+                            <option value="gaussian">Gaussian Blend (Default)</option>
+                            <option value="exponential">Exponential</option>
+                            <option value="logarithmic">Logarithmic</option>
+                            <option value="sinusoidal">Sinusoidal</option>
+                            <option value="step">Step Function</option>
+                            <option value="sigmoid">S-Curve (Sigmoid)</option>
+                            <option value="quadratic">Quadratic</option>
+                            <option value="circular">Circular Arc</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <div class="control-section">
@@ -329,6 +354,17 @@
                             <option value="triangle">Triangle Wave</option>
                             <option value="square">Square Wave</option>
                             <option value="audio">Audio Visualizer</option>
+                            <option value="sawtooth">Sawtooth Wave</option>
+                            <option value="bounce">Bounce Effect</option>
+                            <option value="perlin">Perlin Noise</option>
+                            <option value="pulse">Pulse Wave</option>
+                            <option value="pendulum">Pendulum</option>
+                            <option value="circular">Circular Motion</option>
+                            <option value="lissajous">Lissajous</option>
+                            <option value="elastic">Elastic</option>
+                            <option value="multiwave">Multi-Wave</option>
+                            <option value="spiral">Spiral</option>
+                            <option value="chaotic">Chaotic</option>
                         </select>
                     </div>
                     
@@ -366,6 +402,7 @@
                 distortionFactor: distortionFactorControl.value,
                 distortionCenter: distortionCenterControl.value,
                 distortionExponent: distortionExponentControl.value,
+                distortionCurveType: distortionCurveTypeSelect.value,
                 movementType: movementTypeSelect.value,
                 movementSpeed: movementSpeedControl.value,
                 movementRange: movementRangeControl.value
@@ -384,7 +421,8 @@
                 distortionFactor: "100",
                 distortionCenter: "41",
                 distortionExponent: "1.2",
-                movementType: "sine",
+                distortionCurveType: "gaussian",
+                movementType: "random",
                 movementSpeed: "10", 
                 movementRange: "7"
             };
@@ -397,6 +435,7 @@
             distortionFactorControl.value = settings.distortionFactor;
             distortionCenterControl.value = settings.distortionCenter;
             distortionExponentControl.value = settings.distortionExponent;
+            distortionCurveTypeSelect.value = settings.distortionCurveType || "gaussian"; // Default if not present
             movementTypeSelect.value = settings.movementType;
             movementTypeQuickSelect.value = settings.movementType;
             movementSpeedControl.value = settings.movementSpeed;
@@ -422,6 +461,7 @@
         const distortionFactorControl = document.getElementById('distortionFactor');
         const distortionCenterControl = document.getElementById('distortionCenter');
         const distortionExponentControl = document.getElementById('distortionExponent');
+        const distortionCurveTypeSelect = document.getElementById('distortionCurveType');
         const movementTypeSelect = document.getElementById('movementType');
         const movementTypeQuickSelect = document.getElementById('movementType-quick');
         const movementSpeedControl = document.getElementById('movementSpeed');
@@ -449,6 +489,12 @@
         let audioAnalyser = null;
         let audioDataArray = null;
         let audioSource = null;
+        let perlinNoiseOffset = Math.random() * 1000; // Starting offset for Perlin noise
+        let pulseWidth = 0.5; // Duty cycle for pulse wave (0-1)
+        let bouncePhase = 0; // Phase for bounce oscillator
+        let springPosition = 0;
+        let springVelocity = 0;
+        let chaosX = 0.1, chaosY = 0.1, chaosZ = 0.1; // For chaotic attractor
         
         // Make canvas fullscreen and handle resize
         function resizeCanvas() {
@@ -494,6 +540,69 @@
             return Math.exp(-(x * x) / (2 * sigma * sigma));
         }
         
+        // Add distortion curve functions
+        function calculateDistortionCurve(distanceFromCenter, direction, curveType, distortionExponent, distortionFactor) {
+            // Normalized distance and base values
+            const d = distanceFromCenter;
+            const exp = distortionExponent;
+            const factor = distortionFactor;
+            
+            // Don't distort at exact center
+            if (d === 0) return 0;
+            
+            let compressionStrength = 0;
+            
+            switch(curveType) {
+                case "exponential":
+                    // Strong effect near center, tapering off
+                    compressionStrength = Math.pow(Math.exp(-d * 2), exp) * factor;
+                    break;
+                    
+                case "logarithmic":
+                    // Gradual effect near center, stronger at edges
+                    compressionStrength = (1 - Math.log(d + 0.1) / Math.log(1.1)) * factor;
+                    break;
+                    
+                case "sinusoidal":
+                    // Wave-like distortion
+                    compressionStrength = (0.5 + 0.5 * Math.sin(d * Math.PI * 3 - Math.PI/2)) * factor;
+                    break;
+                    
+                case "step":
+                    // Discrete steps of distortion
+                    const steps = 5;
+                    const stepValue = Math.floor(d * steps) / steps;
+                    compressionStrength = (1 - stepValue) * factor;
+                    break;
+                    
+                case "sigmoid":
+                    // S-curve with smooth transition
+                    compressionStrength = (1 / (1 + Math.exp((d * 6) - 3))) * factor;
+                    break;
+                    
+                case "quadratic":
+                    // Parabolic curve
+                    compressionStrength = (1 - d * d) * factor;
+                    break;
+                    
+                case "circular":
+                    // Based on the equation of a circle
+                    compressionStrength = (Math.sqrt(1 - d * d)) * factor;
+                    break;
+                    
+                case "gaussian":
+                default:
+                    // Original blend of gaussian and power curves
+                    const gaussianFactor = gaussianCurve(d, 0.4);
+                    const powerFactor = Math.pow(1 - d, exp);
+                    compressionStrength = (gaussianFactor * 0.7 + powerFactor * 0.3) * factor;
+                    break;
+            }
+            
+            // Apply direction (toward center)
+            return direction < 0 ? compressionStrength : -compressionStrength;
+        }
+        
         // Function to draw the artwork
         function drawMovementInSquares(dynamicDistortionCenter = null) {
             // Clear canvas
@@ -537,23 +646,22 @@
                 // Base undistorted position
                 let transformedX = normalizedX;
                 
+                // Get the selected curve type
+                const curveType = distortionCurveTypeSelect.value;
+                
                 // Apply distortion only if not at exact center
                 if (distanceFromCenter > 0) {
-                    // Use Gaussian curve for smoother compression near the center
-                    const gaussianFactor = gaussianCurve(distanceFromCenter, 0.4);
+                    // Calculate compression using the new function
+                    const compressionAmount = calculateDistortionCurve(
+                        distanceFromCenter, 
+                        direction,
+                        curveType,
+                        distortionExponent,
+                        distortionFactor
+                    );
                     
-                    // Combine with power curve for edge behavior
-                    const powerFactor = Math.pow(1 - distanceFromCenter, distortionExponent);
-                    
-                    // Blend both curves for a more rounded effect
-                    const compressionStrength = (gaussianFactor * 0.7 + powerFactor * 0.3) * distortionFactor;
-                    
-                    // Apply compression toward center with enhanced curve
-                    if (direction < 0) {
-                        transformedX = normalizedX + (distanceFromCenter * compressionStrength);
-                    } else {
-                        transformedX = normalizedX - (distanceFromCenter * compressionStrength);
-                    }
+                    // Apply compression
+                    transformedX = normalizedX + (distanceFromCenter * compressionAmount);
                 }
                 
                 // Convert normalized position to canvas coordinates
@@ -657,6 +765,146 @@
                         const normalizedBass = bassAverage / 255;
                         currentDistortionCenter = centerPoint + (normalizedBass * 2 - 1) * maxRange;
                     }
+                    break;
+                    
+                case 'sawtooth':
+                    // Sawtooth wave oscillator - linear rise, rapid fall
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    const sawtoothPhase = (oscillatorPhase % (2 * Math.PI)) / (2 * Math.PI);
+                    const sawtoothValue = (sawtoothPhase * 2) - 1;
+                    currentDistortionCenter = centerPoint + sawtoothValue * maxRange;
+                    break;
+                    
+                case 'bounce':
+                    // Bounce effect with gravity-like acceleration
+                    bouncePhase += deltaTime * movementSpeed * 0.5;
+                    bouncePhase %= 1.0;
+                    
+                    // Simulate a bounce with gravity using squared sine
+                    const bounceValue = Math.abs(Math.sin(bouncePhase * Math.PI));
+                    const gravityEffect = 1 - (bounceValue * bounceValue);
+                    currentDistortionCenter = centerPoint + (gravityEffect * 2 - 1) * maxRange;
+                    break;
+                    
+                case 'perlin':
+                    // Perlin noise for smooth random movement
+                    perlinNoiseOffset += deltaTime * movementSpeed;
+                    const perlinValue = noise(perlinNoiseOffset * 0.5);
+                    currentDistortionCenter = centerPoint + perlinValue * maxRange;
+                    break;
+                    
+                case 'pulse':
+                    // Pulse wave (adjustable square wave)
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    const pulsePhase = (oscillatorPhase % (2 * Math.PI)) / (2 * Math.PI);
+                    const pulseValue = pulsePhase < 0.3 ? 1 : -1; // 30% duty cycle
+                    currentDistortionCenter = centerPoint + pulseValue * maxRange;
+                    break;
+                    
+                case 'pendulum':
+                    // Pendulum motion with slowdown at extremes
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    const pendulumValue = Math.sin(oscillatorPhase) * Math.cos(oscillatorPhase * 0.3);
+                    currentDistortionCenter = centerPoint + pendulumValue * maxRange;
+                    break;
+                    
+                case 'circular':
+                    // Circular motion that orbits around center point
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    const orbitalValue = Math.sin(oscillatorPhase) * Math.cos(oscillatorPhase * 0.5);
+                    currentDistortionCenter = centerPoint + orbitalValue * maxRange;
+                    break;
+                    
+                case 'lissajous':
+                    // Lissajous pattern (combination of two sine waves with different frequencies)
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    const lissajousX = Math.sin(oscillatorPhase * 1.0);
+                    const lissajousY = Math.sin(oscillatorPhase * 1.5); // Different frequency ratio creates the pattern
+                    // Project 2D lissajous onto 1D by taking the average
+                    const lissajousValue = (lissajousX + lissajousY) / 2;
+                    currentDistortionCenter = centerPoint + lissajousValue * maxRange;
+                    break;
+                    
+                case 'elastic':
+                    // Spring/elastic motion with natural damping
+                    const springConstant = 10.0;
+                    const springDamping = 1.0;
+                    const targetPosition = 0;
+                    
+                    // Calculate spring force (Hooke's law: F = -kx)
+                    const displacement = springPosition - targetPosition;
+                    const springForce = -springConstant * displacement;
+                    
+                    // Apply damping force (F = -cv)
+                    const dampingForce = -springDamping * springVelocity;
+                    
+                    // Calculate acceleration (F = ma, assuming mass = 1)
+                    const springAcceleration = springForce + dampingForce;
+                    
+                    // Update velocity and position using simple Euler integration
+                    springVelocity += springAcceleration * deltaTime;
+                    springPosition += springVelocity * deltaTime;
+                    
+                    // Occasionally add an impulse to keep the motion going
+                    if (Math.random() < deltaTime * 0.5) {
+                        springVelocity += (Math.random() - 0.5) * movementSpeed * 0.5;
+                    }
+                    
+                    currentDistortionCenter = centerPoint + springPosition * maxRange * 0.5;
+                    break;
+                    
+                case 'multiwave':
+                    // Combination of multiple sine waves at different frequencies
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    
+                    // Fundamental frequency
+                    const fundamental = Math.sin(oscillatorPhase);
+                    
+                    // Add harmonics with decreasing amplitude
+                    const secondHarmonic = Math.sin(oscillatorPhase * 2) * 0.5;
+                    const thirdHarmonic = Math.sin(oscillatorPhase * 3) * 0.33;
+                    const fourthHarmonic = Math.sin(oscillatorPhase * 5) * 0.25;
+                    
+                    // Combine waves
+                    const multiwave = (fundamental + secondHarmonic + thirdHarmonic + fourthHarmonic) / 2.08; // Normalize
+                    
+                    currentDistortionCenter = centerPoint + multiwave * maxRange;
+                    break;
+                    
+                case 'spiral':
+                    // Spiral motion - combination of decreasing sine and cosine
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    
+                    // Create a spiral effect by modulating amplitude with time
+                    const spiralAmplitude = 1.0 - ((oscillatorPhase % (Math.PI * 8)) / (Math.PI * 8));
+                    const spiralValue = Math.sin(oscillatorPhase) * spiralAmplitude;
+                    
+                    // When amplitude gets very low, reset it
+                    if (spiralAmplitude < 0.1) {
+                        oscillatorPhase = 0;
+                    }
+                    
+                    currentDistortionCenter = centerPoint + spiralValue * maxRange;
+                    break;
+                    
+                case 'chaotic':
+                    // Simple chaotic system (inspired by Lorenz attractor but simplified)
+                    const dt = deltaTime * movementSpeed * 0.5;
+                    const a = 10.0, b = 28.0, c = 8.0/3.0;
+                    
+                    // Lorenz system simplified to 1D output
+                    const dx = a * (chaosY - chaosX) * dt;
+                    const dy = (chaosX * (b - chaosZ) - chaosY) * dt;
+                    const dz = (chaosX * chaosY - c * chaosZ) * dt;
+                    
+                    chaosX += dx;
+                    chaosY += dy;
+                    chaosZ += dz;
+                    
+                    // Normalize chaotic value to -1 to 1 range
+                    const chaosNormalized = Math.max(-1, Math.min(1, chaosY / 30));
+                    
+                    currentDistortionCenter = centerPoint + chaosNormalized * maxRange;
                     break;
                     
                 case 'static':
@@ -771,6 +1019,11 @@
             drawMovementInSquares();
         });
         
+        distortionCurveTypeSelect.addEventListener('change', () => {
+            updateValueDisplays();
+            drawMovementInSquares();
+        });
+        
         movementSpeedControl.addEventListener('input', updateValueDisplays);
         movementRangeControl.addEventListener('input', updateValueDisplays);
         
@@ -815,6 +1068,32 @@
         
         // Default to collapsed controls
         controlsContainer.classList.add('collapsed');
+        
+        // Simple Perlin noise implementation
+        function noise(x) {
+            const X = Math.floor(x) & 255;
+            x -= Math.floor(x);
+            const fadeX = x * x * (3 - 2 * x);
+            const A = permutation[X];
+            const B = permutation[X + 1];
+            return lerp(fadeX, grad(A, x), grad(B, x - 1)) * 2;
+        }
+        
+        function lerp(t, a, b) {
+            return a + t * (b - a);
+        }
+        
+        function grad(hash, x) {
+            const h = hash & 15;
+            const grad = 1 + (h & 7);
+            return (h & 8 ? -grad : grad) * x;
+        }
+        
+        // Simplified permutation table for Perlin noise
+        const permutation = new Array(512);
+        for (let i = 0; i < 256; i++) {
+            permutation[i] = permutation[i + 256] = Math.floor(Math.random() * 256);
+        }
     </script>
 </body>
 </html>
