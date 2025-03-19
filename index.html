@@ -387,6 +387,33 @@
                         <p>Interactive recreation of Bridget Riley's "Movement in Squares" (1961). Adjust parameters or enable dynamic movement for different effects.</p>
                     </div>
                 </div>
+                
+                <div class="control-section">
+                    <h2 class="section-title">Visual Effects</h2>
+                    <div class="control-group">
+                        <label for="shaderEffect">Shader Effect</label>
+                        <select id="shaderEffect">
+                            <option value="none">No Effect</option>
+                            <option value="filmGrain">Film Grain</option>
+                            <option value="crt">CRT TV</option>
+                            <option value="vhs">VHS Tape</option>
+                            <option value="technicolor">Technicolor</option>
+                            <option value="halftone">Halftone Print</option>
+                            <option value="psychedelic">Psychedelic</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="effectIntensity">Effect Intensity <span class="value-display" id="effectIntensityValue">50%</span></label>
+                        <input type="range" id="effectIntensity" min="1" max="100" value="50">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="flickerEffect"> Add Projector Flicker
+                        </label>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -405,7 +432,10 @@
                 distortionCurveType: distortionCurveTypeSelect.value,
                 movementType: movementTypeSelect.value,
                 movementSpeed: movementSpeedControl.value,
-                movementRange: movementRangeControl.value
+                movementRange: movementRangeControl.value,
+                shaderEffect: shaderEffectSelect.value,
+                effectIntensity: effectIntensityControl.value,
+                flickerEffect: flickerEffectCheckbox.checked
             };
             
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -441,6 +471,11 @@
             movementSpeedControl.value = settings.movementSpeed;
             movementRangeControl.value = settings.movementRange;
             
+            // Add shader settings
+            shaderEffectSelect.value = settings.shaderEffect || "none";
+            effectIntensityControl.value = settings.effectIntensity || "50";
+            flickerEffectCheckbox.checked = settings.flickerEffect || false;
+            
             // Update displays
             updateValueDisplays();
             
@@ -470,6 +505,10 @@
         const startAudioQuickButton = document.getElementById('startAudio-quick');
         const stopAnimationButton = document.getElementById('stopAnimation');
         const stopAnimationQuickButton = document.getElementById('stopAnimation-quick');
+        const shaderEffectSelect = document.getElementById('shaderEffect');
+        const effectIntensityControl = document.getElementById('effectIntensity');
+        const effectIntensityValue = document.getElementById('effectIntensityValue');
+        const flickerEffectCheckbox = document.getElementById('flickerEffect');
         
         // Get all value displays
         const gridSizeValue = document.getElementById('gridSizeValue');
@@ -495,6 +534,20 @@
         let springPosition = 0;
         let springVelocity = 0;
         let chaosX = 0.1, chaosY = 0.1, chaosZ = 0.1; // For chaotic attractor
+        
+        // WebGL variables
+        let gl = null;
+        let shaderPrograms = {};
+        let currentShaderProgram = null;
+        let shaderCanvas = null;
+        let shaderTexture = null;
+        let quadBuffer = null;
+        let textureCoordBuffer = null;
+        let timeUniformLocation = null;
+        let flickerUniformLocation = null;
+        let intensityUniformLocation = null;
+        let flickerAmount = 0;
+        let shaderTime = 0;
         
         // Make canvas fullscreen and handle resize
         function resizeCanvas() {
@@ -527,6 +580,9 @@
             
             const movementRange = parseInt(movementRangeControl.value);
             movementRangeValue.textContent = `${movementRange}%`;
+            
+            const effectIntensity = parseInt(effectIntensityControl.value);
+            effectIntensityValue.textContent = `${effectIntensity}%`;
             
             // Sync movement type between main and quick select
             movementTypeQuickSelect.value = movementTypeSelect.value;
@@ -690,6 +746,11 @@
                         ctx.fillRect(x1, y1, width, cellSize);
                     }
                 }
+            }
+            
+            // At the end of the function, add:
+            if (gl && shaderEffectSelect.value !== 'none') {
+                applyShaderEffect();
             }
         }
         
@@ -1094,6 +1155,558 @@
         for (let i = 0; i < 256; i++) {
             permutation[i] = permutation[i + 256] = Math.floor(Math.random() * 256);
         }
+        
+        // Initialize WebGL for shaders
+        function initShaders() {
+            // Create a separate canvas for shader effects
+            shaderCanvas = document.createElement('canvas');
+            shaderCanvas.width = canvas.width;
+            shaderCanvas.height = canvas.height;
+            document.body.appendChild(shaderCanvas);
+            
+            // Position the shader canvas on top of the main canvas
+            shaderCanvas.style.position = 'fixed';
+            shaderCanvas.style.top = '0';
+            shaderCanvas.style.left = '0';
+            shaderCanvas.style.width = '100vw';
+            shaderCanvas.style.height = '100vh';
+            shaderCanvas.style.pointerEvents = 'none'; // Allow clicks to pass through
+            
+            // Initialize WebGL
+            gl = shaderCanvas.getContext('webgl') || shaderCanvas.getContext('experimental-webgl');
+            if (!gl) {
+                console.error('WebGL not supported');
+                return false;
+            }
+            
+            // Create shader programs
+            initFilmGrainShader();
+            initCRTShader();
+            initVHSShader();
+            initTechnicolorShader();
+            initHalftoneShader();
+            initPsychedelicShader();
+            
+            // Create buffers for a quad that covers the whole canvas
+            quadBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+            gl.bufferData(
+                gl.ARRAY_BUFFER,
+                new Float32Array([
+                    -1.0, -1.0,
+                     1.0, -1.0,
+                    -1.0,  1.0,
+                     1.0,  1.0
+                ]),
+                gl.STATIC_DRAW
+            );
+            
+            // Create texture coordinate buffer
+            textureCoordBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+            gl.bufferData(
+                gl.ARRAY_BUFFER,
+                new Float32Array([
+                    0.0, 0.0,
+                    1.0, 0.0,
+                    0.0, 1.0,
+                    1.0, 1.0
+                ]),
+                gl.STATIC_DRAW
+            );
+            
+            // Create a texture to hold the canvas content
+            shaderTexture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, shaderTexture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            
+            return true;
+        }
+        
+        // Create and compile a shader
+        function compileShader(source, type) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            
+            return shader;
+        }
+        
+        // Create a shader program from vertex and fragment shaders
+        function createShaderProgram(vertexSource, fragmentSource) {
+            const vertexShader = compileShader(vertexSource, gl.VERTEX_SHADER);
+            const fragmentShader = compileShader(fragmentSource, gl.FRAGMENT_SHADER);
+            
+            if (!vertexShader || !fragmentShader) return null;
+            
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error('Shader program linking error:', gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                return null;
+            }
+            
+            return program;
+        }
+        
+        // Common vertex shader for all effects
+        const vertexShaderSource = `
+            attribute vec2 a_position;
+            attribute vec2 a_texCoord;
+            varying vec2 v_texCoord;
+            
+            void main() {
+                gl_Position = vec4(a_position, 0.0, 1.0);
+                v_texCoord = a_texCoord;
+            }
+        `;
+        
+        // Initialize Film Grain shader
+        function initFilmGrainShader() {
+            const fragmentShaderSource = `
+                precision mediump float;
+                varying vec2 v_texCoord;
+                uniform sampler2D u_texture;
+                uniform float u_time;
+                uniform float u_intensity;
+                uniform float u_flicker;
+                
+                float rand(vec2 co) {
+                    return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+                }
+                
+                void main() {
+                    // Sample the texture
+                    vec4 color = texture2D(u_texture, v_texCoord);
+                    
+                    // Add grain
+                    vec2 grain_uv = v_texCoord * vec2(1.0, 1.0) + u_time * 0.1;
+                    float grain = rand(grain_uv) * u_intensity * 0.2;
+                    
+                    // Add flicker effect
+                    float flicker = 1.0 - (u_flicker * 0.1);
+                    
+                    // Add scratches
+                    float scratch = 0.0;
+                    if (rand(vec2(u_time, 5.0)) > 0.98) {
+                        float h = rand(vec2(u_time, 1.0)) * 0.3;
+                        if (abs(v_texCoord.y - h) < 0.001 * u_intensity) {
+                            scratch = 0.5 * u_intensity;
+                        }
+                    }
+                    
+                    // Apply effects
+                    color.rgb *= flicker;
+                    color.rgb += grain;
+                    color.rgb += scratch;
+                    
+                    // Slight sepia tone
+                    float r = color.r * 0.9;
+                    float g = color.g * 0.8;
+                    float b = color.b * 0.7;
+                    color.rgb = vec3(r, g, b);
+                    
+                    gl_FragColor = color;
+                }
+            `;
+            
+            shaderPrograms.filmGrain = createShaderProgram(vertexShaderSource, fragmentShaderSource);
+        }
+        
+        // Initialize CRT TV shader
+        function initCRTShader() {
+            const fragmentShaderSource = `
+                precision mediump float;
+                varying vec2 v_texCoord;
+                uniform sampler2D u_texture;
+                uniform float u_time;
+                uniform float u_intensity;
+                uniform float u_flicker;
+                
+                void main() {
+                    // Rounded corners
+                    vec2 center = v_texCoord - vec2(0.5, 0.5);
+                    float vignette = 1.0 - length(center * 1.5) * u_intensity * 0.5;
+                    vignette = max(0.0, vignette);
+                    
+                    // Warp the texture coordinates for CRT effect
+                    vec2 uv = v_texCoord;
+                    vec2 curved_uv = uv * 2.0 - 1.0;
+                    vec2 offset = curved_uv.yx * curved_uv.yx * vec2(0.1, 0.1) * u_intensity;
+                    uv = uv + offset * 0.1;
+                    
+                    // Check if we're outside the valid texture area
+                    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
+                        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+                        return;
+                    }
+                    
+                    // Scanlines
+                    float scanline = sin(uv.y * 100.0) * 0.04 * u_intensity;
+                    
+                    // Slight color shift for RGB
+                    float r = texture2D(u_texture, uv + vec2(0.002 * u_intensity, 0.0)).r;
+                    float g = texture2D(u_texture, uv).g;
+                    float b = texture2D(u_texture, uv - vec2(0.002 * u_intensity, 0.0)).b;
+                    
+                    // Flicker effect
+                    float noise = u_flicker * 0.1 * sin(u_time * 10.0);
+                    
+                    // Apply effects
+                    vec4 crt_color = vec4(r, g, b, 1.0);
+                    crt_color.rgb += scanline;
+                    crt_color.rgb *= vignette;
+                    crt_color.rgb *= (1.0 - noise);
+                    
+                    gl_FragColor = crt_color;
+                }
+            `;
+            
+            shaderPrograms.crt = createShaderProgram(vertexShaderSource, fragmentShaderSource);
+        }
+        
+        // Initialize VHS shader
+        function initVHSShader() {
+            const fragmentShaderSource = `
+                precision mediump float;
+                varying vec2 v_texCoord;
+                uniform sampler2D u_texture;
+                uniform float u_time;
+                uniform float u_intensity;
+                uniform float u_flicker;
+                
+                float rand(vec2 co) {
+                    return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+                }
+                
+                void main() {
+                    // VHS tracking distortion
+                    float tracking = sin(v_texCoord.y * 50.0 + u_time) * 0.005 * u_intensity;
+                    vec2 uv = v_texCoord + vec2(tracking, 0.0);
+                    
+                    // RGB shift based on tracking
+                    float r = texture2D(u_texture, uv + vec2(0.001 * u_intensity, 0.0)).r;
+                    float g = texture2D(u_texture, uv).g;
+                    float b = texture2D(u_texture, uv - vec2(0.001 * u_intensity, 0.0)).b;
+                    
+                    // VHS noise
+                    float noise = rand(uv + u_time * 0.1) * 0.1 * u_intensity;
+                    
+                    // Occasional horizontal glitches
+                    if (rand(vec2(u_time, 0.3)) > 0.97) {
+                        float glitch_y = floor(rand(vec2(u_time, 0.5)) * 10.0) / 10.0;
+                        if (abs(v_texCoord.y - glitch_y) < 0.1) {
+                            uv.x += (rand(vec2(u_time, uv.y)) - 0.5) * 0.1 * u_intensity;
+                            noise *= 2.0;
+                        }
+                    }
+                    
+                    // Flicker and jitter
+                    float flicker = 1.0 - (u_flicker * rand(vec2(u_time, 0.1)) * 0.1);
+                    
+                    // Apply effects
+                    vec4 color = vec4(r, g, b, 1.0);
+                    color.rgb += noise;
+                    color.rgb *= flicker;
+                    
+                    // Adjust contrast for VHS look
+                    color.rgb = (color.rgb - 0.5) * (1.0 + 0.1 * u_intensity) + 0.5;
+                    
+                    gl_FragColor = color;
+                }
+            `;
+            
+            shaderPrograms.vhs = createShaderProgram(vertexShaderSource, fragmentShaderSource);
+        }
+        
+        // Initialize Technicolor shader
+        function initTechnicolorShader() {
+            const fragmentShaderSource = `
+                precision mediump float;
+                varying vec2 v_texCoord;
+                uniform sampler2D u_texture;
+                uniform float u_time;
+                uniform float u_intensity;
+                uniform float u_flicker;
+                
+                void main() {
+                    // Get base color
+                    vec4 color = texture2D(u_texture, v_texCoord);
+                    
+                    // Apply technicolor three-strip look
+                    float r = color.r;
+                    float g = color.g;
+                    float b = color.b;
+                    
+                    // Adjustments for technicolor look
+                    r = r * (1.0 + 0.2 * u_intensity);
+                    g = g * (1.0 + 0.1 * u_intensity);
+                    b = b * (1.0 + 0.3 * u_intensity);
+                    
+                    // Increase color separation
+                    vec3 technicolor = vec3(
+                        r * (1.1 - 0.1 * g),
+                        g * (1.0 - 0.2 * r),
+                        b * (1.3 - 0.1 * r - 0.1 * g)
+                    );
+                    
+                    // Add slight misalignment
+                    float offset = 0.002 * u_intensity;
+                    technicolor.r = texture2D(u_texture, v_texCoord + vec2(offset, 0.0)).r * (1.0 + 0.2 * u_intensity);
+                    
+                    // Increase contrast
+                    technicolor = (technicolor - 0.5) * (1.0 + 0.2 * u_intensity) + 0.5;
+                    
+                    // Add slight grain
+                    float grain = fract(sin(dot(v_texCoord, vec2(12.9898, 78.233)) + u_time) * 43758.5453);
+                    technicolor += (grain - 0.5) * 0.05 * u_intensity;
+                    
+                    // Apply flicker
+                    technicolor *= (1.0 - u_flicker * 0.1 * sin(u_time * 5.0));
+                    
+                    gl_FragColor = vec4(technicolor, color.a);
+                }
+            `;
+            
+            shaderPrograms.technicolor = createShaderProgram(vertexShaderSource, fragmentShaderSource);
+        }
+        
+        // Initialize Halftone shader
+        function initHalftoneShader() {
+            const fragmentShaderSource = `
+                precision mediump float;
+                varying vec2 v_texCoord;
+                uniform sampler2D u_texture;
+                uniform float u_time;
+                uniform float u_intensity;
+                uniform float u_flicker;
+                
+                const float PI = 3.1415926535;
+                
+                float halftone(vec2 uv, float angle, float size, float intensity) {
+                    float s = sin(angle), c = cos(angle);
+                    vec2 tex = uv * vec2(resolution.x / resolution.y, 1.0);
+                    vec2 point = vec2(
+                        c * tex.x - s * tex.y,
+                        s * tex.x + c * tex.y
+                    );
+                    
+                    point = size * point;
+                    point = 0.5 + 0.5 * sin(point.xy);
+                    float dots = smoothstep(0.05, 0.95, point.x * point.y);
+                    
+                    return intensity < 0.0 ? dots : intensity > dots ? 1.0 : 0.0;
+                }
+                
+                void main() {
+                    vec4 color = texture2D(u_texture, v_texCoord);
+                    
+                    // Luminance
+                    float lum = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
+                    
+                    // Halftone angles for CMYK
+                    float dotSize = 5.0 + 5.0 * u_intensity;
+                    float magenta = halftone(v_texCoord, PI/4.0, dotSize, lum);
+                    float yellow = halftone(v_texCoord, PI/3.0, dotSize, lum);
+                    float cyan = halftone(v_texCoord, PI/2.0, dotSize, lum);
+                    float black = halftone(v_texCoord, 0.0, dotSize, lum);
+                    
+                    // Combine the CMYK halftones
+                    vec3 halftoneColor = vec3(
+                        magenta * (1.0 - color.r),
+                        yellow * (1.0 - color.g),
+                        cyan * (1.0 - color.b)
+                    );
+                    
+                    // Mix between original and halftone based on intensity
+                    vec3 finalColor = mix(color.rgb, halftoneColor, u_intensity);
+                    
+                    // Apply flicker
+                    finalColor *= (1.0 - u_flicker * 0.05 * sin(u_time * 10.0));
+                    
+                    gl_FragColor = vec4(finalColor, color.a);
+                }
+            `;
+            
+            shaderPrograms.halftone = createShaderProgram(vertexShaderSource, fragmentShaderSource);
+        }
+        
+        // Initialize Psychedelic shader
+        function initPsychedelicShader() {
+            const fragmentShaderSource = `
+                precision mediump float;
+                varying vec2 v_texCoord;
+                uniform sampler2D u_texture;
+                uniform float u_time;
+                uniform float u_intensity;
+                uniform float u_flicker;
+                
+                void main() {
+                    // Warping the texture coordinates
+                    vec2 center = vec2(0.5, 0.5);
+                    vec2 toCenter = center - v_texCoord;
+                    float dist = length(toCenter);
+                    
+                    // Create a psychedelic distortion
+                    float wave = sin(dist * 50.0 - u_time * 2.0) * u_intensity * 0.1;
+                    vec2 distortedUV = v_texCoord + toCenter * wave;
+                    
+                    // Add color shifting
+                    float r = texture2D(u_texture, distortedUV + vec2(0.01, 0.0) * u_intensity).r;
+                    float g = texture2D(u_texture, distortedUV).g;
+                    float b = texture2D(u_texture, distortedUV - vec2(0.01, 0.0) * u_intensity).b;
+                    
+                    // Enhance colors
+                    vec3 psychedelic = vec3(r, g, b);
+                    psychedelic = psychedelic * 1.3; // Brighten
+                    
+                    // Add rainbow effect
+                    float rainbow = sin(v_texCoord.x * 20.0 + u_time) * sin(v_texCoord.y * 20.0 - u_time);
+                    psychedelic += vec3(
+                        sin(rainbow + u_time),
+                        sin(rainbow + u_time + 2.0),
+                        sin(rainbow + u_time + 4.0)
+                    ) * 0.15 * u_intensity;
+                    
+                    // Add pulse
+                    float pulse = 0.5 + 0.5 * sin(u_time * 2.0);
+                    psychedelic *= 1.0 + 0.1 * pulse * u_intensity;
+                    
+                    // Apply flicker
+                    psychedelic *= (1.0 - u_flicker * 0.1 * sin(u_time * 7.0));
+                    
+                    gl_FragColor = vec4(psychedelic, 1.0);
+                }
+            `;
+            
+            shaderPrograms.psychedelic = createShaderProgram(vertexShaderSource, fragmentShaderSource);
+        }
+        
+        // Apply shader effect to the canvas
+        function applyShaderEffect() {
+            if (!gl || shaderEffectSelect.value === 'none') {
+                // Hide shader canvas when no effect is selected
+                if (shaderCanvas) {
+                    shaderCanvas.style.display = 'none';
+                }
+                return;
+            }
+            
+            // Show shader canvas
+            shaderCanvas.style.display = 'block';
+            
+            // Resize shader canvas if main canvas has been resized
+            if (shaderCanvas.width !== canvas.width || shaderCanvas.height !== canvas.height) {
+                shaderCanvas.width = canvas.width;
+                shaderCanvas.height = canvas.height;
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            }
+            
+            // Select shader program
+            const program = shaderPrograms[shaderEffectSelect.value];
+            if (!program) return;
+            
+            gl.useProgram(program);
+            
+            // Set up vertices
+            const positionLocation = gl.getAttribLocation(program, 'a_position');
+            gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+            gl.enableVertexAttribArray(positionLocation);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+            
+            // Set up texture coordinates
+            const texCoordLocation = gl.getAttribLocation(program, 'a_texCoord');
+            gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+            gl.enableVertexAttribArray(texCoordLocation);
+            gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+            
+            // Update texture with current canvas content
+            gl.bindTexture(gl.TEXTURE_2D, shaderTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+            
+            // Set uniforms
+            const textureLocation = gl.getUniformLocation(program, 'u_texture');
+            const timeLocation = gl.getUniformLocation(program, 'u_time');
+            const intensityLocation = gl.getUniformLocation(program, 'u_intensity');
+            const flickerLocation = gl.getUniformLocation(program, 'u_flicker');
+            const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+            
+            gl.uniform1i(textureLocation, 0);
+            gl.uniform1f(timeLocation, shaderTime);
+            gl.uniform1f(intensityLocation, parseFloat(effectIntensityControl.value) / 100);
+            
+            // Calculate flicker value
+            let flickerValue = 0;
+            if (flickerEffectCheckbox.checked) {
+                // Simulate projector flicker
+                flickerValue = Math.sin(shaderTime * 15.0) * 0.5 + 0.5;
+                flickerValue = flickerValue * flickerValue; // Make it more pronounced
+            }
+            gl.uniform1f(flickerLocation, flickerValue);
+            
+            if (resolutionLocation) {
+                gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+            }
+            
+            // Draw
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            
+            // Update time for animations
+            shaderTime += 0.016; // Approximately 60fps
+        }
+        
+        // Add event listeners for shader controls
+        shaderEffectSelect.addEventListener('change', () => {
+            updateValueDisplays();
+            if (shaderEffectSelect.value === 'none') {
+                if (shaderCanvas) {
+                    shaderCanvas.style.display = 'none';
+                }
+            } else {
+                if (!gl && shaderCanvas) {
+                    // Initialize WebGL if it hasn't been initialized yet
+                    initShaders();
+                }
+                drawMovementInSquares();
+            }
+        });
+        
+        effectIntensityControl.addEventListener('input', () => {
+            updateValueDisplays();
+            if (gl && shaderEffectSelect.value !== 'none') {
+                applyShaderEffect();
+            }
+        });
+        
+        flickerEffectCheckbox.addEventListener('change', () => {
+            updateValueDisplays();
+            if (gl && shaderEffectSelect.value !== 'none') {
+                applyShaderEffect();
+            }
+        });
+        
+        // Initialize shaders after the page loads
+        window.addEventListener('load', () => {
+            // Try to initialize the shaders
+            if (initShaders()) {
+                console.log('Shader effects initialized successfully');
+            } else {
+                console.warn('Could not initialize shader effects - WebGL not supported');
+            }
+        });
     </script>
 </body>
 </html>
