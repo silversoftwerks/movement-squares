@@ -29,6 +29,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const primaryColorControl = document.getElementById('primaryColor');
     const secondaryColorControl = document.getElementById('secondaryColor');
     const customColorGroup = document.getElementById('customColorGroup');
+    const stripAngleControl = document.getElementById('stripAngle');
+    const alternateStripAnglesControl = document.getElementById('alternateStripAngles');
     
     // Get all value displays
     const ringCountValue = document.getElementById('ringCountValue');
@@ -36,6 +38,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const stripeCountValue = document.getElementById('stripeCountValue');
     const angleOffsetValue = document.getElementById('angleOffsetValue');
     const rotationSpeedValue = document.getElementById('rotationSpeedValue');
+    const stripAngleValue = document.getElementById('stripAngleValue');
     
     // Get buttons
     const pausePlayButton = document.getElementById('pausePlay');
@@ -57,7 +60,9 @@ document.addEventListener('DOMContentLoaded', function() {
             alternateRotation: alternateRotationControl.checked,
             colorScheme: colorSchemeControl.value,
             primaryColor: primaryColorControl.value,
-            secondaryColor: secondaryColorControl.value
+            secondaryColor: secondaryColorControl.value,
+            stripAngle: stripAngleControl.value,
+            alternateStripAngles: alternateStripAnglesControl.checked
         };
         
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -79,6 +84,8 @@ document.addEventListener('DOMContentLoaded', function() {
             colorSchemeControl.value = settings.colorScheme || 'bw';
             primaryColorControl.value = settings.primaryColor || '#000000';
             secondaryColorControl.value = settings.secondaryColor || '#FFFFFF';
+            stripAngleControl.value = settings.stripAngle || 0;
+            alternateStripAnglesControl.checked = settings.alternateStripAngles !== false;
             
             // Update custom color display
             if (colorSchemeControl.value === 'custom') {
@@ -105,6 +112,7 @@ document.addEventListener('DOMContentLoaded', function() {
         stripeCountValue.textContent = stripeCountControl.value;
         angleOffsetValue.textContent = parseFloat(angleOffsetControl.value).toFixed(3);
         rotationSpeedValue.textContent = parseFloat(rotationSpeedControl.value).toFixed(3);
+        stripAngleValue.textContent = `${stripAngleControl.value}°`;
         
         // Save settings whenever they change
         saveSettings();
@@ -123,6 +131,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const rotationSpeed = parseFloat(rotationSpeedControl.value);
         const alternateRotation = alternateRotationControl.checked;
         const colorScheme = colorSchemeControl.value;
+        const stripAngle = parseFloat(stripAngleControl.value);
+        const alternateStripAngles = alternateStripAnglesControl.checked;
         
         // Initialize rotations if needed
         if (ringRotations.length === 0) {
@@ -146,6 +156,30 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'yg':
                 primaryColor = '#cccc00';  // Yellow
                 secondaryColor = '#00cc00'; // Green
+                break;
+            case 'egypt1':
+                primaryColor = '#1A8BB3';  // Turquoise blue
+                secondaryColor = '#E3B92F'; // Ochre/gold
+                break;
+            case 'egypt2':
+                primaryColor = '#D74E3D';  // Egyptian red
+                secondaryColor = '#2B5282'; // Lapis blue
+                break;
+            case 'ra':
+                primaryColor = '#CC3333';  // Red
+                secondaryColor = '#FCF6EA'; // Off-white/cream
+                break;
+            case 'chant':
+                primaryColor = '#275D96';  // Blue
+                secondaryColor = '#CD9F3B'; // Gold
+                break;
+            case 'late70s':
+                primaryColor = '#7F4098';  // Purple
+                secondaryColor = '#009A4E'; // Green
+                break;
+            case 'rajasthan':
+                primaryColor = '#FF671E';  // Orange/vermilion
+                secondaryColor = '#3F49FF'; // Bright blue
                 break;
             case 'custom':
                 primaryColor = primaryColorControl.value;
@@ -194,7 +228,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     primaryColor,
                     secondaryColor,
                     stripeCount,
-                    angleOffset
+                    angleOffset,
+                    alternateStripAngles ? (r % 2 === 0 ? stripAngle : -stripAngle) : stripAngle
                 );
             }
         }
@@ -206,15 +241,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Draw a segment of a ring with perpendicular stripes
-    function drawStripedRingSegment(cx, cy, outerRadius, innerRadius, startAngle, endAngle, isPrimaryColor, primaryColor, secondaryColor, stripeCount, angleOffset) {
+    function drawStripedRingSegment(cx, cy, outerRadius, innerRadius, startAngle, endAngle, isPrimaryColor, primaryColor, secondaryColor, stripeCount, angleOffset, stripAngle) {
         // Safety check: ensure both radii are positive and outer > inner
         if (outerRadius <= 0 || innerRadius <= 0 || outerRadius <= innerRadius) {
             return; // Skip drawing this segment
         }
         
         // Create angled edges by offsetting the angles
-        
-        // Alternate the zigzag direction for adjacent segments
         const outerStartAngle = startAngle + angleOffset;
         const outerEndAngle = endAngle - angleOffset;
         const innerStartAngle = startAngle - angleOffset;
@@ -224,10 +257,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const mainAngleWidth = endAngle - startAngle;
         const stripeAngleWidth = mainAngleWidth / stripeCount;
         
+        // Convert stripAngle from degrees to radians
+        const stripAngleRad = (stripAngle * Math.PI) / 180;
+        
         // Draw each stripe within the segment
         for (let s = 0; s < stripeCount; s++) {
+            // Base angles for the stripe
             const stripeStartAngle = startAngle + (s * stripeAngleWidth);
             const stripeEndAngle = stripeStartAngle + stripeAngleWidth;
+            
+            // Apply angle offset based on stripAngle
+            const adjustedOuterStart = stripeStartAngle;
+            const adjustedOuterEnd = stripeEndAngle;
+            
+            // Calculate inner angles with strip angle adjustment
+            // This creates the angled effect by shifting the inner arc
+            const midRadius = (outerRadius + innerRadius) / 2;
+            const radiusDiff = outerRadius - innerRadius;
+            const angleShift = Math.atan2(radiusDiff * Math.sin(stripAngleRad), 
+                                           midRadius * stripeAngleWidth);
+            
+            const adjustedInnerStart = stripeStartAngle - angleShift;
+            const adjustedInnerEnd = stripeEndAngle - angleShift;
             
             // Alternate colors for stripes
             const usesPrimaryColor = (s % 2 === 0) ? isPrimaryColor : !isPrimaryColor;
@@ -235,19 +286,22 @@ document.addEventListener('DOMContentLoaded', function() {
             ctx.beginPath();
             
             // Outer arc of the stripe
-            ctx.arc(cx, cy, outerRadius, stripeStartAngle, stripeEndAngle);
+            ctx.arc(cx, cy, outerRadius, adjustedOuterStart, adjustedOuterEnd);
             
-            // Line to inner radius
+            // Line to inner arc end
             ctx.lineTo(
-                cx + innerRadius * Math.cos(stripeEndAngle),
-                cy + innerRadius * Math.sin(stripeEndAngle)
+                cx + innerRadius * Math.cos(adjustedInnerEnd),
+                cy + innerRadius * Math.sin(adjustedInnerEnd)
             );
             
             // Inner arc (in counter-clockwise direction)
-            ctx.arc(cx, cy, innerRadius, stripeEndAngle, stripeStartAngle, true);
+            ctx.arc(cx, cy, innerRadius, adjustedInnerEnd, adjustedInnerStart, true);
             
-            // Close the path
-            ctx.closePath();
+            // Line back to outer arc start
+            ctx.lineTo(
+                cx + outerRadius * Math.cos(adjustedOuterStart),
+                cy + outerRadius * Math.sin(adjustedOuterStart)
+            );
             
             // Fill and stroke
             ctx.fillStyle = usesPrimaryColor ? primaryColor : secondaryColor;
@@ -346,6 +400,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     primaryColorControl.addEventListener('change', saveSettings);
     secondaryColorControl.addEventListener('change', saveSettings);
+    
+    stripAngleControl.addEventListener('input', updateValueDisplays);
+    alternateStripAnglesControl.addEventListener('change', saveSettings);
     
     // Initialize
     loadSettings();

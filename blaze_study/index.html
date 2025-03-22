@@ -270,6 +270,17 @@
                         <label for="angleOffset">Segment Angle Offset <span class="value-display" id="angleOffsetValue">0.02</span></label>
                         <input type="range" id="angleOffset" min="0" max="0.1" step="0.005" value="0.02">
                     </div>
+                    
+                    <div class="control-group">
+                        <label for="stripAngle">Stripe Angle <span class="value-display" id="stripAngleValue">0°</span></label>
+                        <input type="range" id="stripAngle" min="-45" max="45" step="1" value="0">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="alternateStripAngles" checked> Alternate Strip Angles Between Rings
+                        </label>
+                    </div>
                 </div>
                 
                 <div class="control-section">
@@ -289,9 +300,15 @@
                     <div class="control-group">
                         <label for="colorScheme">Color Scheme</label>
                         <select id="colorScheme">
-                            <option value="bw">Black & White</option>
+                            <option value="bw">Black & White (Classic Op Art)</option>
                             <option value="rb">Red & Blue</option>
                             <option value="yg">Yellow & Green</option>
+                            <option value="egypt1">Egyptian Palette: Turquoise & Gold</option>
+                            <option value="egypt2">Egyptian Palette: Red & Blue</option>
+                            <option value="ra">Ra Series: Red & Cream</option>
+                            <option value="chant">Chant Series: Blue & Gold</option>
+                            <option value="late70s">Late 70s: Purple & Green</option>
+                            <option value="rajasthan">Rajasthan: Orange & Blue</option>
                             <option value="custom">Custom Colors</option>
                         </select>
                     </div>
@@ -307,7 +324,13 @@
             </div>
             
             <div class="info-box">
-                <p>Interactive recreation of Bridget Riley's "Blaze" (1964). Adjust the parameters to create different optical effects.</p>
+                <p>Interactive recreation of Bridget Riley's "Blaze" (1964), originally a black and white op art piece. This version includes colors inspired by Riley's later works:</p>
+                <ul style="margin-top: 8px; padding-left: 20px;">
+                    <li><strong>Egyptian Palette:</strong> Inspired by her visits to Egypt in the 1980s, featuring colors like turquoise, ochre, red, and lapis blue.</li>
+                    <li><strong>Ra/Chant Series:</strong> From her works with warm and cool color interactions.</li>
+                    <li><strong>Late 70s:</strong> When Riley began exploring color relationships more extensively.</li>
+                    <li><strong>Rajasthan:</strong> Bold complementary colors inspired by her travels in India.</li>
+                </ul>
             </div>
         </div>
     </div>
