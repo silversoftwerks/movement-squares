@@ -30,10 +30,10 @@
         canvas {
             display: block;
             position: fixed;
-            top: -50vw;
-            left: -50vw;
-            width: 200vw;
-            height: 200vh;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
         }
         
         .controls-container {
@@ -228,6 +228,28 @@
                 min-width: 100%;
             }
         }
+        
+        /* Add these new styles for the scrollable ring width controls */
+        .ring-width-scrollable {
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 10px;
+            margin-right: -10px; /* Compensate for the scrollbar width */
+            scrollbar-width: thin; /* For Firefox */
+        }
+        
+        /* Webkit scrollbar styling */
+        .ring-width-scrollable::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .ring-width-scrollable::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        
+        .ring-width-scrollable::-webkit-scrollbar-thumb {
+            background-color: var(--primary-color);
+        }
     </style>
 </head>
 <body>
@@ -263,12 +285,12 @@
                     
                     <div class="control-group">
                         <label for="segmentCount">Segments per Ring <span class="value-display" id="segmentCountValue">36</span></label>
-                        <input type="range" id="segmentCount" min="12" max="72" value="36">
+                        <input type="range" id="segmentCount" min="1" max="60" value="36">
                     </div>
                     
                     <div class="control-group">
                         <label for="stripeCount">Stripes per Segment <span class="value-display" id="stripeCountValue">7</span></label>
-                        <input type="range" id="stripeCount" min="3" max="15" value="7">
+                        <input type="range" id="stripeCount" min="1" max="360" value="7">
                     </div>
                     
                     <div class="control-group">
@@ -285,6 +307,13 @@
                         <label>
                             <input type="checkbox" id="alternateStripAngles" checked> Alternate Strip Angles Between Rings
                         </label>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h2 class="section-title">Individual Ring Widths</h2>
+                    <div id="individualRingWidths">
+                        <!-- Ring width controls will be generated here programmatically -->
                     </div>
                 </div>
                 

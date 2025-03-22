@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', function() {
     // Fix the Canvas2D fallback function
     function setupCanvas2D() {
@@ -31,32 +30,70 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add WebGL setup function
     function setupWebGL() {
-        // Capture all needed control values as local variables first
-        const ringCountValue = ringCountControl.value;
-        const segmentCountValue = segmentCountControl.value;
-        const stripeCountValue = stripeCountControl.value;
-        // Capture all other needed control values here
-        
-        // Create a proxy function for drawBlaze that uses the captured values
-        const drawBlazeForWebGL = (timestamp, customCtx, customCanvas) => {
-            // Use captured values here instead of directly accessing controls
-            const ringCount = parseInt(ringCountValue);
-            const segments = parseInt(segmentCountValue);
-            const stripeCount = parseInt(stripeCountValue);
-            // Set other parameters from captured values
-            
-            // Call the original drawBlaze with these values
-            // (we'll need to modify drawBlaze to accept these parameters directly)
-            // For now, we can just ensure the controls are in scope
-            drawBlaze(timestamp, customCtx, customCanvas);
-        };
-        
-        // Now continue with WebGL setup knowing we have all the values we need
         // Hide the canvas2D element and show the WebGL canvas
         const canvas2D = document.getElementById('blazeCanvas');
         canvas2D.style.display = 'none';
         
-        // Rest of WebGL setup...
+        // Create or show WebGL canvas
+        let glCanvas = document.getElementById('blazeGLCanvas');
+        if (!glCanvas) {
+            glCanvas = document.createElement('canvas');
+            glCanvas.id = 'blazeGLCanvas';
+            glCanvas.width = canvas2D.width;
+            glCanvas.height = canvas2D.height;
+            // Apply the same positioning and sizing as the main canvas
+            glCanvas.style.position = 'fixed';
+            glCanvas.style.top = '-50vw';
+            glCanvas.style.left = '-50vw';
+            glCanvas.style.width = '200vw';
+            glCanvas.style.height = '200vh';
+            canvas2D.parentNode.insertBefore(glCanvas, canvas2D);
+        } else {
+            glCanvas.style.display = 'block';
+        }
+        
+        // Initialize WebGL context
+        const gl = glCanvas.getContext('webgl') || glCanvas.getContext('experimental-webgl');
+        if (!gl) {
+            console.error('Unable to initialize WebGL. Your browser may not support it.');
+            glowEnabledControl.checked = false;
+            setupCanvas2D();
+            return;
+        }
+        
+        try {
+            // Initialize shaders
+            const shaderProgram = initShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
+            if (!shaderProgram) throw new Error("Failed to initialize shader program");
+            
+            const glowProgram = initShaderProgram(gl, vertexShaderSource, glowFragmentShaderSource);
+            if (!glowProgram) throw new Error("Failed to initialize glow shader program");
+            
+            // Create buffers for rendering
+            const buffers = createPlaneBuffers(gl);
+            
+            // Create framebuffer and texture for off-screen rendering
+            const { framebuffer, texture } = createFramebufferTexture(gl, glCanvas.width, glCanvas.height);
+            
+            // Store WebGL objects for later use
+            window.webglContext = {
+                gl,
+                canvas: glCanvas,
+                shaderProgram,
+                glowProgram,
+                buffers,
+                framebuffer,
+                texture
+            };
+            
+            // Start rendering with WebGL
+            drawBlazeWithGlow();
+        } catch (error) {
+            console.error('WebGL initialization error:', error);
+            // Fall back to Canvas2D rendering
+            glowEnabledControl.checked = false;
+            setupCanvas2D();
+        }
     }
 
     // Function to draw the blaze pattern with glow
@@ -74,7 +111,66 @@ document.addEventListener('DOMContentLoaded', function() {
             // Draw the pattern to temp canvas
             drawBlaze(timestamp, tempCtx, tempCanvas);
             
-            // Rest of glow effect code...
+            // Now apply the WebGL glow effect
+            const { gl, canvas: glCanvas, glowProgram, buffers, texture } = window.webglContext;
+            
+            // Clear the canvas
+            gl.clearColor(1.0, 1.0, 1.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            
+            // Use the glow shader program
+            gl.useProgram(glowProgram);
+            
+            // Set up attribute locations
+            const vertexPosition = gl.getAttribLocation(glowProgram, 'aVertexPosition');
+            const textureCoord = gl.getAttribLocation(glowProgram, 'aTextureCoord');
+            
+            // Position attribute
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.position);
+            gl.vertexAttribPointer(vertexPosition, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(vertexPosition);
+            
+            // Texture coordinate attribute
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffers.textureCoord);
+            gl.vertexAttribPointer(textureCoord, 2, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(textureCoord);
+            
+            // Indices
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+            
+            // Create a texture from the temporary canvas
+            const patternTexture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, patternTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tempCanvas);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            
+            // Set the texture unit
+            gl.uniform1i(gl.getUniformLocation(glowProgram, 'uTexture'), 0);
+            
+            // Get glow parameters from controls
+            const glowIntensity = parseFloat(glowIntensityControl.value) / 100;
+            const glowSize = parseFloat(glowSizeControl.value);
+            const glowColor = hexToRgb(glowColorControl.value);
+            
+            // Set glow uniforms
+            gl.uniform1f(gl.getUniformLocation(glowProgram, 'uGlowIntensity'), glowIntensity);
+            gl.uniform1f(gl.getUniformLocation(glowProgram, 'uGlowSize'), glowSize);
+            gl.uniform3fv(gl.getUniformLocation(glowProgram, 'uGlowColor'), [
+                glowColor.r / 255, glowColor.g / 255, glowColor.b / 255
+            ]);
+            
+            // Draw the quad
+            gl.drawElements(gl.TRIANGLES, buffers.count, gl.UNSIGNED_SHORT, 0);
+            
+            // Clean up
+            gl.deleteTexture(patternTexture);
+            
+            // Continue animation
+            if (!isPaused) {
+                animationId = requestAnimationFrame(drawBlazeWithGlow);
+            }
         } catch (error) {
             console.error("Error in drawBlazeWithGlow:", error);
             // Fall back to regular canvas rendering
@@ -92,14 +188,24 @@ document.addEventListener('DOMContentLoaded', function() {
         } : {r: 0, g: 0, b: 0};
     }
 
-    // Modify the drawBlaze function to accept custom context
+    // Modify the drawBlaze function to make rings larger and overflow the screen
     function drawBlaze(timestamp, customCtx, customCanvas) {
         const ctx = customCtx || document.getElementById('blazeCanvas').getContext('2d');
         const canvas = customCanvas || document.getElementById('blazeCanvas');
         
-        // Store maxRadius globally for access in other functions
-        const size = canvas.width;
-        window.maxRadius = size * 0.45;
+        // Make the canvas dimensions larger than the viewport
+        if (!customCanvas) {
+            canvas.width = window.innerWidth * 1.5;
+            canvas.height = window.innerHeight * 1.5;
+        }
+        
+        // Set the center point to the middle of the viewport (not the canvas)
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        
+        // Set maxRadius to extend beyond the screen (much larger than before)
+        const maxRadius = Math.max(window.innerWidth, window.innerHeight) * 1.2;
+        window.maxRadius = maxRadius;
         
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -122,8 +228,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const ringWidthPercent = parseInt(ringWidthControl.value);
         const gradientCurve = gradientCurveControl.value;
         
-        // Calculate actual ring width
-        const ringWidth = (maxRadius / ringCount) * (ringWidthPercent / 100);
+        // Get individual ring width values for all rings
+        const individualRingWidths = [];
+        for (let i = 1; i <= ringCount; i++) {
+            const control = document.getElementById(`ring${i}Width`);
+            if (control) {
+                individualRingWidths.push(parseInt(control.value) / 100);
+            } else {
+                individualRingWidths.push(ringWidthPercent / 100);
+            }
+        }
+        
+        // Use a fixed base unit for ring width that doesn't depend on ring count
+        // This way adding rings doesn't shrink existing ones
+        const baseRingUnit = maxRadius / 12; // Use 12 as a reference point (default ring count)
+        const baseRingWidth = baseRingUnit * (ringWidthPercent / 100);
         
         // Angular width of each segment in radians
         const segmentAngle = (Math.PI * 2) / segments;
@@ -195,26 +314,29 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // Draw concentric rings from outside to inside
+        // Start from center and build outward
+        let currentRadius = 0;
+        
+        // Draw rings from inside to outside
         for (let r = 0; r < ringCount; r++) {
-            // Change the ring position calculation to ensure rings align perfectly
-            // First calculate the total width of all rings
-            const totalRingWidth = maxRadius * (ringWidthPercent / 100);
+            // Calculate this ring's width using the individual setting
+            const thisRingWidth = baseRingUnit * individualRingWidths[r];
             
-            // Calculate positions with even spacing
-            const ringStep = maxRadius / ringCount;
-            const outerRadius = maxRadius - (r * ringStep);
-            const innerRadius = outerRadius - ringStep;
+            // Inner radius is where the previous ring ended
+            const innerRadius = currentRadius;
+            // Outer radius adds this ring's width
+            const outerRadius = innerRadius + thisRingWidth;
             
-            // Skip if inner radius would be negative
-            if (innerRadius < 0) continue;
+            // Update the current radius for the next ring
+            currentRadius = outerRadius;
             
-            const ringRotation = ringRotations[r]; // Current rotation for this ring
+            // Get the current rotation for this ring
+            const ringRotation = ringRotations[r];
             
-            // Always use primary color for outermost (r=0) and innermost rings
-            const isOutermostRing = r === 0;
-            const isInnermostRing = r === ringCount - 1;
-            const forceRingPrimaryColor = isOutermostRing || isInnermostRing;
+            // Always use primary color for innermost (r=0) and outermost rings
+            const isInnermostRing = r === 0;
+            const isOutermostRing = r === ringCount - 1;
+            const forceRingPrimaryColor = isInnermostRing || isOutermostRing;
             
             // Calculate a ring phase to ensure consistent color alternation
             const ringPhase = r % 2;
@@ -256,11 +378,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // Return to animation loop if not paused and not using custom context
+        // Continue animation if not paused
         if (!customCtx && !isPaused) {
             animationId = requestAnimationFrame(drawBlaze);
         }
     }
+
     // Canvas setup
     const canvas = document.getElementById('blazeCanvas');
     const ctx = canvas.getContext('2d');
@@ -333,6 +456,19 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to save settings
     function saveSettings() {
+        // Get all current individual ring width values
+        const ringCount = parseInt(ringCountControl.value);
+        const individualRingWidths = [];
+        
+        for (let i = 1; i <= ringCount; i++) {
+            const control = document.getElementById(`ring${i}Width`);
+            if (control) {
+                individualRingWidths.push(parseInt(control.value));
+            } else {
+                individualRingWidths.push(100); // Default to 100% if control doesn't exist
+            }
+        }
+        
         const settings = {
             ringCount: ringCountControl.value,
             segmentCount: segmentCountControl.value,
@@ -355,7 +491,8 @@ document.addEventListener('DOMContentLoaded', function() {
             glowEnabled: glowEnabledControl.checked,
             glowIntensity: glowIntensityControl.value,
             glowSize: glowSizeControl.value,
-            glowColor: glowColorControl.value
+            glowColor: glowColorControl.value,
+            individualRingWidths: individualRingWidths
         };
         
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -398,6 +535,17 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Update displays
             updateValueDisplays();
+            
+            // Load individual ring width values
+            if (settings.individualRingWidths) {
+                for (let i = 1; i <= Math.min(6, settings.individualRingWidths.length); i++) {
+                    const control = document.getElementById(`ring${i}Width`);
+                    if (control) {
+                        control.value = settings.individualRingWidths[i-1];
+                        document.getElementById(`ring${i}WidthValue`).textContent = `${control.value}%`;
+                    }
+                }
+            }
         }
     }
     
@@ -427,176 +575,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Save settings whenever they change
         saveSettings();
-    }
-    
-    // Draw the Blaze pattern
-    function drawBlaze(timestamp, customCtx, customCanvas) {
-        const ctx = customCtx || document.getElementById('blazeCanvas').getContext('2d');
-        const canvas = customCanvas || document.getElementById('blazeCanvas');
-        
-        // Store maxRadius globally for access in other functions
-        const size = canvas.width;
-        window.maxRadius = size * 0.45;
-        
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Get parameter values from controls
-        const ringCount = parseInt(ringCountControl.value);
-        const segments = parseInt(segmentCountControl.value);
-        const stripeCount = parseInt(stripeCountControl.value);
-        const angleOffset = parseFloat(angleOffsetControl.value);
-        const rotationSpeed = parseFloat(rotationSpeedControl.value);
-        const alternateRotation = alternateRotationControl.checked;
-        const colorScheme = colorSchemeControl.value;
-        const stripAngle = parseFloat(stripAngleControl.value);
-        const alternateStripAngles = alternateStripAnglesControl.checked;
-        const gradientEnabled = gradientEnabledControl.checked;
-        const gradientIntensity = parseInt(gradientIntensityControl.value) / 100;
-        const edgeBrightness = parseInt(edgeBrightnessControl.value);
-        const centerDarkness = parseInt(centerDarknessControl.value);
-        const gradientWidth = parseFloat(gradientWidthControl.value);
-        const ringWidthPercent = parseInt(ringWidthControl.value);
-        const gradientCurve = gradientCurveControl.value;
-        
-        // Calculate actual ring width
-        const ringWidth = (maxRadius / ringCount) * (ringWidthPercent / 100);
-        
-        // Angular width of each segment in radians
-        const segmentAngle = (Math.PI * 2) / segments;
-        
-        // Initialize rotations if needed
-        if (ringRotations.length === 0) {
-            initRotations(ringCount);
-        }
-        
-        // Get colors based on the color scheme
-        let primaryColor, secondaryColor;
-        switch (colorScheme) {
-            case 'rb':
-                primaryColor = '#cc0000';  // Red
-                secondaryColor = '#0000cc'; // Blue
-                break;
-            case 'yg':
-                primaryColor = '#cccc00';  // Yellow
-                secondaryColor = '#00cc00'; // Green
-                break;
-            case 'egypt1':
-                primaryColor = '#1A8BB3';  // Turquoise blue
-                secondaryColor = '#E3B92F'; // Ochre/gold
-                break;
-            case 'egypt2':
-                primaryColor = '#D74E3D';  // Egyptian red
-                secondaryColor = '#2B5282'; // Lapis blue
-                break;
-            case 'ra':
-                primaryColor = '#CC3333';  // Red
-                secondaryColor = '#FCF6EA'; // Off-white/cream
-                break;
-            case 'chant':
-                primaryColor = '#275D96';  // Blue
-                secondaryColor = '#CD9F3B'; // Gold
-                break;
-            case 'late70s':
-                primaryColor = '#7F4098';  // Purple
-                secondaryColor = '#009A4E'; // Green
-                break;
-            case 'rajasthan':
-                primaryColor = '#FF671E';  // Orange/vermilion
-                secondaryColor = '#3F49FF'; // Bright blue
-                break;
-            case 'custom':
-                primaryColor = primaryColorControl.value;
-                secondaryColor = secondaryColorControl.value;
-                break;
-            case 'psychedelic':
-                primaryColor = '#FF0055';  // Correct hot pink/magenta (was '#FF003')
-                secondaryColor = '#00CC99'; // Greener turquoise
-                break;
-            default: // 'bw'
-                primaryColor = '#000000';  // Black
-                secondaryColor = '#ffffff'; // White
-                break;
-        }
-        
-        // Update rotations for each ring (in alternating directions if selected)
-        if (!isPaused) {
-            for (let r = 0; r < ringCount; r++) {
-                if (alternateRotation) {
-                    // Alternate direction based on ring index (even/odd)
-                    ringRotations[r] += (r % 2 === 0) ? rotationSpeed : -rotationSpeed;
-                } else {
-                    // All rings rotate in the same direction
-                    ringRotations[r] += rotationSpeed;
-                }
-            }
-        }
-        
-        // Draw concentric rings from outside to inside
-        for (let r = 0; r < ringCount; r++) {
-            // Change the ring position calculation to ensure rings align perfectly
-            // First calculate the total width of all rings
-            const totalRingWidth = maxRadius * (ringWidthPercent / 100);
-            
-            // Calculate positions with even spacing
-            const ringStep = maxRadius / ringCount;
-            const outerRadius = maxRadius - (r * ringStep);
-            const innerRadius = outerRadius - ringStep;
-            
-            // Skip if inner radius would be negative
-            if (innerRadius < 0) continue;
-            
-            const ringRotation = ringRotations[r]; // Current rotation for this ring
-            
-            // Always use primary color for outermost (r=0) and innermost rings
-            const isOutermostRing = r === 0;
-            const isInnermostRing = r === ringCount - 1;
-            const forceRingPrimaryColor = isOutermostRing || isInnermostRing;
-            
-            // Calculate a ring phase to ensure consistent color alternation
-            const ringPhase = r % 2;
-            
-            // Adjust the segments based on the ring count to create visual interest
-            for (let i = 0; i < segments; i++) {
-                const startAngle = (i / segments) * Math.PI * 2 + ringRotation;
-                const endAngle = ((i + 1) / segments) * Math.PI * 2 + ringRotation;
-                
-                // Slightly offset the angle to create the "curved" effect
-                const offsetFactor = (r % 2 === 0) ? 1 : -1;
-                const angleOffsetValue = angleOffset * offsetFactor;
-                
-                // Use consistent color alternation logic
-                // This ensures colors don't double at boundaries
-                const segmentPhase = i % 2;
-                const isPrimarySegment = forceRingPrimaryColor || (segmentPhase === ringPhase);
-                
-                drawStripedRingSegment(
-                    centerX, 
-                    centerY, 
-                    outerRadius, 
-                    innerRadius, 
-                    startAngle, 
-                    endAngle, 
-                    isPrimarySegment,
-                    primaryColor,
-                    secondaryColor,
-                    stripeCount,
-                    angleOffsetValue,
-                    alternateStripAngles ? (r % 2 === 0 ? stripAngle : -stripAngle) : stripAngle,
-                    gradientEnabled,
-                    gradientIntensity,
-                    edgeBrightness,
-                    centerDarkness,
-                    gradientWidth,
-                    gradientCurve
-                );
-            }
-        }
-        
-        // Continue animation
-        if (!customCtx && !isPaused) {
-            animationId = requestAnimationFrame(drawBlaze);
-        }
     }
     
     // Draw a segment of a ring with perpendicular stripes
@@ -813,11 +791,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                     case 'triangle':
                         // Sharp triangular pattern with abrupt transitions
-                        gradient.addColorStop(0, lighterColor);
-                        gradient.addColorStop(0.49, lighterColor);
-                        gradient.addColorStop(0.5, deeperColor);
-                        gradient.addColorStop(0.51, lighterColor);
-                        gradient.addColorStop(1, lighterColor);
+                        gradient.addColorStop(0, deeperColor);     // Changed from lighterColor
+                        gradient.addColorStop(0.49, deeperColor);  // Changed from lighterColor
+                        gradient.addColorStop(0.5, lighterColor);  // Changed from deeperColor
+                        gradient.addColorStop(0.51, deeperColor);  // Changed from lighterColor
+                        gradient.addColorStop(1, deeperColor);     // Changed from lighterColor
                         break;
                         
                     case 'organic':
@@ -891,13 +869,19 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Handle window resize
     function handleResize() {
-        size = Math.min(window.innerWidth, window.innerHeight) * 0.8;
-        canvas.width = size;
-        canvas.height = size;
-        centerX = size / 2;
-        centerY = size / 2;
-        maxRadius = size * 0.45;
+        const canvas = document.getElementById('blazeCanvas');
+        // Set canvas size to be larger than the viewport
+        canvas.width = window.innerWidth * 1.5;
+        canvas.height = window.innerHeight * 1.5;
         
+        // Update WebGL canvas if it exists
+        const glCanvas = document.getElementById('blazeGLCanvas');
+        if (glCanvas) {
+            glCanvas.width = canvas.width;
+            glCanvas.height = canvas.height;
+        }
+        
+        // Force redraw with the new dimensions
         drawBlaze();
     }
     
@@ -926,6 +910,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateValueDisplays();
         const newRingCount = parseInt(ringCountControl.value);
         initRotations(newRingCount);
+        createRingWidthControls();  // Regenerate controls when ring count changes
     });
     
     segmentCountControl.addEventListener('input', updateValueDisplays);
@@ -981,8 +966,91 @@ document.addEventListener('DOMContentLoaded', function() {
     glowSizeControl.addEventListener('input', updateValueDisplays);
     glowColorControl.addEventListener('change', saveSettings);
     
+    // Modify the createRingWidthControls function to use a scrollable container
+    function createRingWidthControls() {
+        const ringCount = parseInt(ringCountControl.value);
+        const container = document.getElementById('individualRingWidths');
+        
+        // Clear existing controls
+        container.innerHTML = '';
+        
+        // Create a scrollable container for the controls
+        const scrollContainer = document.createElement('div');
+        scrollContainer.className = 'ring-width-scrollable';
+        container.appendChild(scrollContainer);
+        
+        // Create controls for each ring
+        for (let i = 1; i <= ringCount; i++) {
+            // Create control group div
+            const controlGroup = document.createElement('div');
+            controlGroup.className = 'control-group ring-width-control';
+            controlGroup.id = `ring${i}WidthControl`;
+            
+            // Create label
+            const label = document.createElement('label');
+            label.htmlFor = `ring${i}Width`;
+            label.textContent = `Ring ${i} Width `;
+            
+            // Create value display span
+            const valueDisplay = document.createElement('span');
+            valueDisplay.className = 'value-display';
+            valueDisplay.id = `ring${i}WidthValue`;
+            valueDisplay.textContent = '100%';
+            
+            // Append value display to label
+            label.appendChild(valueDisplay);
+            
+            // Create slider input
+            const input = document.createElement('input');
+            input.type = 'range';
+            input.id = `ring${i}Width`;
+            input.min = '1';
+            input.max = '500';
+            input.value = '100';
+            
+            // Add event listener to the input
+            input.addEventListener('input', () => {
+                valueDisplay.textContent = `${input.value}%`;
+                saveSettings();
+            });
+            
+            // Assemble control group
+            controlGroup.appendChild(label);
+            controlGroup.appendChild(input);
+            
+            // Add to scrollable container
+            scrollContainer.appendChild(controlGroup);
+        }
+        
+        // Load individual ring width values from settings
+        loadRingWidthSettings();
+    }
+    
+    // Function to load ring width settings
+    function loadRingWidthSettings() {
+        const settingsJson = localStorage.getItem(SETTINGS_KEY);
+        if (settingsJson) {
+            const settings = JSON.parse(settingsJson);
+            
+            if (settings.individualRingWidths) {
+                const ringCount = parseInt(ringCountControl.value);
+                for (let i = 1; i <= ringCount; i++) {
+                    const control = document.getElementById(`ring${i}Width`);
+                    if (control && settings.individualRingWidths[i-1]) {
+                        control.value = settings.individualRingWidths[i-1];
+                        document.getElementById(`ring${i}WidthValue`).textContent = `${control.value}%`;
+                    }
+                }
+            }
+        }
+    }
+    
     // Initialize
     loadSettings();
+
+    // Add this line to create the ring width controls when the page loads
+    createRingWidthControls();
+
     startAnimation();
     
     // Auto-collapse controls on mobile
@@ -992,6 +1060,26 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Add this helper function for color mixing
+
+// Add a function to update visible ring controls based on ring count
+function updateRingWidthControls() {
+    const ringCount = parseInt(ringCountControl.value);
+    const container = document.getElementById('individualRingWidths');
+    
+    // First hide all controls
+    const allControls = container.querySelectorAll('.ring-width-control');
+    allControls.forEach(control => {
+        control.style.display = 'none';
+    });
+    
+    // Show only the needed controls for current ring count
+    for (let i = 1; i <= ringCount; i++) {
+        const control = document.getElementById(`ring${i}WidthControl`);
+        if (control) {
+            control.style.display = 'block';
+        }
+    }
+}
 
 
 
