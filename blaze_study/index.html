@@ -5,23 +5,313 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bridget Riley's Blaze</title>
     <style>
-        body {
+        :root {
+            --primary-color: #e3342f;
+            --text-color: #333333;
+            --bg-color: #f0f0f0;
+            --panel-bg: rgba(255, 255, 255, 0.85);
+            --control-height: 36px;
+            --bottom-bar-height: 48px;
+        }
+        
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+            background-color: black;
+            color: var(--text-color);
+        }
+        
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        .controls-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+            transition: transform 0.3s ease;
+            max-height: 70vh;
+        }
+        
+        .controls-container.collapsed {
+            transform: translateY(calc(100% - var(--bottom-bar-height)));
+        }
+        
+        .bottom-bar {
+            width: 100%;
+            height: var(--bottom-bar-height);
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            justify-content: space-between;
+            backdrop-filter: blur(10px);
+        }
+        
+        .title-area {
+            display: flex;
+            align-items: center;
+        }
+        
+        .title {
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-right: 15px;
+            text-transform: uppercase;
+        }
+        
+        .toggle-controls {
+            width: 36px;
+            height: 36px;
+            background-color: var(--primary-color);
+            border: none;
+            cursor: pointer;
+            position: relative;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            background-color: #f0f0f0;
         }
-        canvas {
+        
+        .toggle-controls::before {
+            content: '';
+            display: block;
+            border-style: solid;
+            border-width: 8px 6px 0 6px;
+            border-color: white transparent transparent transparent;
+            transition: transform 0.3s ease;
+        }
+        
+        .collapsed .toggle-controls::before {
+            transform: rotate(180deg);
+        }
+        
+        .controls-panel {
+            background-color: var(--panel-bg);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            overflow-y: auto;
+            max-height: calc(70vh - var(--bottom-bar-height));
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .control-sections {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: space-around;
+        }
+        
+        .control-section {
+            flex: 1;
+            min-width: 250px;
+            max-width: 400px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 15px;
+        }
+        
+        .section-title {
+            font-size: 16px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+        
+        label {
+            font-size: 14px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .value-display {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            background: #ddd;
+            outline: none;
+            border-radius: 0;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--primary-color);
+            cursor: pointer;
+            border: none;
+            border-radius: 0;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--primary-color);
+            cursor: pointer;
+            border: none;
+            border-radius: 0;
+        }
+        
+        select {
+            appearance: none;
+            height: var(--control-height);
+            padding: 0 10px;
             background-color: white;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border: 2px solid #ddd;
+            border-radius: 0;
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+        }
+        
+        select:focus {
+            border-color: var(--primary-color);
+        }
+        
+        button {
+            height: var(--control-height);
+            padding: 0 16px;
+            background-color: black;
+            color: white;
+            border: none;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            margin-right: 8px;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: var(--primary-color);
+        }
+        
+        .info-box {
+            font-size: 13px;
+            line-height: 1.5;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        
+        @media (max-width: 768px) {
+            .control-section {
+                min-width: 100%;
+            }
         }
     </style>
 </head>
 <body>
     <canvas id="blazeCanvas"></canvas>
+    
+    <div class="controls-container collapsed">
+        <div class="bottom-bar">
+            <div class="title-area">
+                <div class="title">Bridget Riley's Blaze</div>
+                <button class="toggle-controls" aria-label="Toggle controls panel"></button>
+            </div>
+            
+            <div>
+                <button id="pausePlay">Pause</button>
+                <button id="resetAnimation">Reset</button>
+            </div>
+        </div>
+        
+        <div class="controls-panel">
+            <div class="control-sections">
+                <div class="control-section">
+                    <h2 class="section-title">Ring Configuration</h2>
+                    
+                    <div class="control-group">
+                        <label for="ringCount">Number of Rings <span class="value-display" id="ringCountValue">12</span></label>
+                        <input type="range" id="ringCount" min="4" max="24" value="12">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="segmentCount">Segments per Ring <span class="value-display" id="segmentCountValue">36</span></label>
+                        <input type="range" id="segmentCount" min="12" max="72" value="36">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="stripeCount">Stripes per Segment <span class="value-display" id="stripeCountValue">7</span></label>
+                        <input type="range" id="stripeCount" min="3" max="15" value="7">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="angleOffset">Segment Angle Offset <span class="value-display" id="angleOffsetValue">0.02</span></label>
+                        <input type="range" id="angleOffset" min="0" max="0.1" step="0.005" value="0.02">
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h2 class="section-title">Animation</h2>
+                    
+                    <div class="control-group">
+                        <label for="rotationSpeed">Rotation Speed <span class="value-display" id="rotationSpeedValue">0.005</span></label>
+                        <input type="range" id="rotationSpeed" min="0.001" max="0.02" step="0.001" value="0.005">
+                    </div>
+                    
+                    <div class="control-group">
+                        <label>
+                            <input type="checkbox" id="alternateRotation" checked> Alternate Ring Rotation
+                        </label>
+                    </div>
+                    
+                    <div class="control-group">
+                        <label for="colorScheme">Color Scheme</label>
+                        <select id="colorScheme">
+                            <option value="bw">Black & White</option>
+                            <option value="rb">Red & Blue</option>
+                            <option value="yg">Yellow & Green</option>
+                            <option value="custom">Custom Colors</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group" id="customColorGroup" style="display:none;">
+                        <label for="primaryColor">Primary Color</label>
+                        <input type="color" id="primaryColor" value="#000000">
+                        
+                        <label for="secondaryColor">Secondary Color</label>
+                        <input type="color" id="secondaryColor" value="#FFFFFF">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <p>Interactive recreation of Bridget Riley's "Blaze" (1964). Adjust the parameters to create different optical effects.</p>
+            </div>
+        </div>
+    </div>
+    
     <script src="blaze.js"></script>
 </body>
 </html> 
