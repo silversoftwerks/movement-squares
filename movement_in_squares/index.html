@@ -298,6 +298,14 @@
                     <option value="multiwave">Multi-Wave</option>
                     <option value="spiral">Spiral</option>
                     <option value="chaotic">Chaotic</option>
+                    <option value="gaussian">Gaussian Bell</option>
+                    <option value="damped">Damped Oscillator</option>
+                    <option value="exponential">Exponential Growth</option>
+                    <option value="brownian">Brownian Motion</option>
+                    <option value="harmonic">Harmonic Oscillator</option>
+                    <option value="step">Step Function</option>
+                    <option value="bezier">Bezier Curve</option>
+                    <option value="cubic">Cubic Polynomial</option>
                 </select>
                 <button id="startAudio-quick">Audio</button>
                 <button id="stopAnimation-quick">Stop</button>
@@ -365,17 +373,35 @@
                             <option value="multiwave">Multi-Wave</option>
                             <option value="spiral">Spiral</option>
                             <option value="chaotic">Chaotic</option>
+                            <option value="gaussian">Gaussian Bell</option>
+                            <option value="damped">Damped Oscillator</option>
+                            <option value="exponential">Exponential Growth</option>
+                            <option value="brownian">Brownian Motion</option>
+                            <option value="harmonic">Harmonic Oscillator</option>
+                            <option value="step">Step Function</option>
+                            <option value="bezier">Bezier Curve</option>
+                            <option value="cubic">Cubic Polynomial</option>
                         </select>
                     </div>
                     
                     <div class="control-group">
                         <label for="movementSpeed">Movement Speed <span class="value-display" id="movementSpeedValue">30%</span></label>
-                        <input type="range" id="movementSpeed" min="1" max="100" value="30">
+                        <input type="range" id="movementSpeed" min="1" max="1000" value="30">
                     </div>
                     
                     <div class="control-group">
                         <label for="movementRange">Movement Range <span class="value-display" id="movementRangeValue">50%</span></label>
                         <input type="range" id="movementRange" min="1" max="100" value="50">
+                    </div>
+                    
+                    <div class="control-group" id="lowPassFilterGroup" style="display: none;">
+                        <label for="lowPassFilter">Low-Pass Filter <span class="value-display" id="lowPassFilterValue">0%</span></label>
+                        <input type="range" id="lowPassFilter" min="0" max="100" value="0">
+                    </div>
+                    
+                    <div class="control-group" id="pendulumAccelerationGroup" style="display: none;">
+                        <label for="pendulumAcceleration">Pendulum Gravity <span class="value-display" id="pendulumAccelerationValue">50%</span></label>
+                        <input type="range" id="pendulumAcceleration" min="10" max="200" value="50">
                     </div>
                     
                     <div class="button-group">
@@ -435,7 +461,9 @@
                 movementRange: movementRangeControl.value,
                 shaderEffect: shaderEffectSelect.value,
                 effectIntensity: effectIntensityControl.value,
-                flickerEffect: flickerEffectCheckbox.checked
+                flickerEffect: flickerEffectCheckbox.checked,
+                lowPassFilter: lowPassFilterControl.value,
+                pendulumAcceleration: pendulumAccelerationControl.value,
             };
             
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -476,6 +504,12 @@
             effectIntensityControl.value = settings.effectIntensity || "50";
             flickerEffectCheckbox.checked = settings.flickerEffect || false;
             
+            // Apply low-pass filter setting
+            lowPassFilterControl.value = settings.lowPassFilter || "0";
+            
+            // Apply pendulum acceleration setting
+            pendulumAccelerationControl.value = settings.pendulumAcceleration || "50";
+            
             // Update displays
             updateValueDisplays();
             
@@ -509,6 +543,12 @@
         const effectIntensityControl = document.getElementById('effectIntensity');
         const effectIntensityValue = document.getElementById('effectIntensityValue');
         const flickerEffectCheckbox = document.getElementById('flickerEffect');
+        const lowPassFilterControl = document.getElementById('lowPassFilter');
+        const lowPassFilterValue = document.getElementById('lowPassFilterValue');
+        const lowPassFilterGroup = document.getElementById('lowPassFilterGroup');
+        const pendulumAccelerationControl = document.getElementById('pendulumAcceleration');
+        const pendulumAccelerationValue = document.getElementById('pendulumAccelerationValue');
+        const pendulumAccelerationGroup = document.getElementById('pendulumAccelerationGroup');
         
         // Get all value displays
         const gridSizeValue = document.getElementById('gridSizeValue');
@@ -549,6 +589,78 @@
         let flickerAmount = 0;
         let shaderTime = 0;
         
+        // Previous audio values for smoothing
+        let prevAudioValues = [];
+        let fundamentalBuffer = [];
+        const AUDIO_SMOOTH_BUFFER_SIZE = 10;
+        
+        // Add a variable to store the filtered value
+        let filteredValue = 0;
+        
+        // Function to detect the fundamental frequency from audio data
+        function detectFundamentalFrequency(audioData) {
+            const bufferLength = audioData.length;
+            
+            // Focus on lower frequencies (bass/midrange) where fundamentals usually are
+            const maxBin = Math.min(bufferLength / 4, 60); // Only look at first quarter of spectrum
+            
+            // Find the peak frequency bin in the lower range
+            let peakBin = 0;
+            let peakValue = 0;
+            
+            for (let i = 1; i < maxBin; i++) {
+                // Apply a slight bias toward lower frequencies
+                const value = audioData[i] * (1.0 - (i / maxBin) * 0.4);
+                
+                if (value > peakValue) {
+                    peakValue = value;
+                    peakBin = i;
+                }
+            }
+            
+            // Ignore very low values (silence)
+            if (peakValue < 30) {
+                // Gradually return to center when there's little audio
+                return null;
+            }
+            
+            // Add to buffer for smoothing
+            fundamentalBuffer.push(peakBin);
+            if (fundamentalBuffer.length > AUDIO_SMOOTH_BUFFER_SIZE) {
+                fundamentalBuffer.shift();
+            }
+            
+            // Use weighted average of recent fundamental frequencies
+            // More recent values have higher weight
+            let weightedSum = 0;
+            let weightSum = 0;
+            
+            for (let i = 0; i < fundamentalBuffer.length; i++) {
+                const weight = (i + 1); // Linear weighting
+                weightedSum += fundamentalBuffer[i] * weight;
+                weightSum += weight;
+            }
+            
+            return weightedSum / weightSum;
+        }
+        
+        // Map the fundamental frequency to a pleasant movement range
+        function mapFundamentalToMovement(fundamentalFreq) {
+            if (fundamentalFreq === null) {
+                // If no clear frequency, gradually return to center
+                return 0;
+            }
+            
+            // This scales the detected frequency to the -1 to 1 range
+            // Using a sine mapping to create a more musical, harmonic movement
+            return Math.sin(fundamentalFreq * (Math.PI / 20));
+        }
+        
+        // Smooth transitions between positions for more pleasant movement
+        function smoothlyTransitionTo(currentValue, targetValue, smoothingFactor) {
+            return currentValue + (targetValue - currentValue) * smoothingFactor;
+        }
+        
         // Make canvas fullscreen and handle resize
         function resizeCanvas() {
             canvas.width = window.innerWidth;
@@ -576,7 +688,9 @@
             distortionExponentValue.textContent = distortionExponent.toFixed(1);
             
             const movementSpeed = parseInt(movementSpeedControl.value);
-            movementSpeedValue.textContent = `${movementSpeed}%`;
+            // Calculate oscillator period in seconds (100% = 1 cycle per second)
+            const periodInSeconds = 100 / movementSpeed;
+            movementSpeedValue.textContent = `${movementSpeed}% (${periodInSeconds.toFixed(2)}s)`;
             
             const movementRange = parseInt(movementRangeControl.value);
             movementRangeValue.textContent = `${movementRange}%`;
@@ -584,10 +698,24 @@
             const effectIntensity = parseInt(effectIntensityControl.value);
             effectIntensityValue.textContent = `${effectIntensity}%`;
             
+            const lowPassFilter = parseInt(lowPassFilterControl.value);
+            lowPassFilterValue.textContent = `${lowPassFilter}%`;
+            
+            const pendulumAcceleration = parseInt(pendulumAccelerationControl.value);
+            pendulumAccelerationValue.textContent = `${pendulumAcceleration}%`;
+            
+            // Show/hide filter control based on selected movement type
+            lowPassFilterGroup.style.display = 
+                (movementTypeSelect.value === 'square') ? 'block' : 'none';
+            
+            // Show/hide pendulum acceleration control based on selected movement type
+            pendulumAccelerationGroup.style.display = 
+                (movementTypeSelect.value === 'pendulum') ? 'block' : 'none';
+            
             // Sync movement type between main and quick select
             movementTypeQuickSelect.value = movementTypeSelect.value;
             
-            // Save settings whenever they change
+            // Save settings when controls change
             saveSettings();
         }
         
@@ -803,28 +931,43 @@
                     break;
                     
                 case 'square':
-                    // Square wave oscillator
+                    // Square wave oscillator with optional low-pass filter
                     oscillatorPhase += deltaTime * movementSpeed;
+                    
+                    // Generate raw square wave (-1 or 1)
                     const squareValue = Math.sin(oscillatorPhase) >= 0 ? 1 : -1;
-                    currentDistortionCenter = centerPoint + squareValue * maxRange;
+                    
+                    // Apply low-pass filter if enabled
+                    const filterAmount = parseFloat(lowPassFilterControl.value) / 100;
+                    
+                    if (filterAmount > 0) {
+                        // Calculate filter coefficient (higher = more smoothing)
+                        const filterCoefficient = Math.min(1, deltaTime * 10 * filterAmount);
+                        
+                        // Apply first-order low-pass filter
+                        filteredValue += (squareValue - filteredValue) * filterCoefficient;
+                        
+                        // Use filtered value for movement
+                        currentDistortionCenter = centerPoint + filteredValue * maxRange;
+                    } else {
+                        // Use raw square wave without filtering
+                        currentDistortionCenter = centerPoint + squareValue * maxRange;
+                    }
                     break;
                     
                 case 'audio':
-                    // Audio visualizer
+                    // Audio visualizer with fundamental frequency detection
                     if (audioAnalyser) {
                         audioAnalyser.getByteFrequencyData(audioDataArray);
                         
-                        // Use average of bass frequencies for movement
-                        let bassAverage = 0;
-                        const bassSamples = Math.min(20, audioDataArray.length / 8);
-                        for (let i = 0; i < bassSamples; i++) {
-                            bassAverage += audioDataArray[i];
-                        }
-                        bassAverage /= bassSamples;
+                        // Extract the fundamental frequency and create smoother movement
+                        const fundamentalFreq = detectFundamentalFrequency(audioDataArray);
+                        const normalizedFreq = mapFundamentalToMovement(fundamentalFreq);
                         
-                        // Map the bass average (0-255) to distortion center
-                        const normalizedBass = bassAverage / 255;
-                        currentDistortionCenter = centerPoint + (normalizedBass * 2 - 1) * maxRange;
+                        // Apply smoothing for more pleasant movement
+                        currentDistortionCenter = smoothlyTransitionTo(currentDistortionCenter, 
+                                         centerPoint + normalizedFreq * maxRange, 
+                                         deltaTime * 3.0);
                     }
                     break;
                     
@@ -863,9 +1006,15 @@
                     break;
                     
                 case 'pendulum':
-                    // Pendulum motion with slowdown at extremes
+                    // Pendulum motion with adjustable gravity/acceleration
                     oscillatorPhase += deltaTime * movementSpeed;
-                    const pendulumValue = Math.sin(oscillatorPhase) * Math.cos(oscillatorPhase * 0.3);
+                    
+                    // Get acceleration factor (higher values = more gravity/acceleration)
+                    const accelerationFactor = parseInt(pendulumAccelerationControl.value) / 50; // 50% = factor of 1.0
+                    
+                    // Calculate pendulum motion with adjustable acceleration
+                    // This creates a swinging motion that accelerates more at extremes when acceleration is higher
+                    const pendulumValue = Math.sin(oscillatorPhase) * Math.cos(oscillatorPhase * accelerationFactor * 0.3);
                     currentDistortionCenter = centerPoint + pendulumValue * maxRange;
                     break;
                     
@@ -968,6 +1117,153 @@
                     currentDistortionCenter = centerPoint + chaosNormalized * maxRange;
                     break;
                     
+                case 'gaussian':
+                    // Gaussian bell curve oscillator
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    const normalizedPhase = (oscillatorPhase % (2 * Math.PI)) / (2 * Math.PI);
+                    
+                    // Create Gaussian bell curve (e^-(x^2))
+                    const gaussianOffset = normalizedPhase * 6 - 3; // Map 0-1 to -3 to 3
+                    const gaussianValue = Math.exp(-gaussianOffset * gaussianOffset) * 2 - 1; // Map to -1 to 1
+                    
+                    currentDistortionCenter = centerPoint + gaussianValue * maxRange;
+                    break;
+                    
+                case 'damped':
+                    // Damped oscillator that gradually decreases amplitude
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    
+                    // Calculate damping factor (decreases over time)
+                    dampingFactor = Math.exp(-oscillatorPhase * 0.1);
+                    
+                    // If amplitude gets too small, reset
+                    if (dampingFactor < 0.1) {
+                        oscillatorPhase = 0;
+                        dampingFactor = 1.0;
+                    }
+                    
+                    // Damped sine wave
+                    const dampedValue = Math.sin(oscillatorPhase) * dampingFactor;
+                    currentDistortionCenter = centerPoint + dampedValue * maxRange;
+                    break;
+                    
+                case 'exponential':
+                    // Exponential growth and decay
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    
+                    // Increment exponential position
+                    exponentialPosition += deltaTime * movementSpeed * 0.5 * exponentialDirection;
+                    
+                    // Flip direction when reaching limits
+                    if (exponentialPosition > 1.0) {
+                        exponentialPosition = 1.0;
+                        exponentialDirection = -1;
+                    } else if (exponentialPosition < 0.0) {
+                        exponentialPosition = 0.0;
+                        exponentialDirection = 1;
+                    }
+                    
+                    // Apply exponential function for non-linear movement
+                    const exponent = 3.0; // Higher = more extreme curve
+                    let expValue;
+                    
+                    if (exponentialDirection > 0) {
+                        // Growth phase (accelerating)
+                        expValue = Math.pow(exponentialPosition, exponent) * 2 - 1;
+                    } else {
+                        // Decay phase (decelerating)
+                        expValue = (1 - Math.pow(1 - exponentialPosition, exponent)) * 2 - 1;
+                    }
+                    
+                    currentDistortionCenter = centerPoint + expValue * maxRange;
+                    break;
+                    
+                case 'brownian':
+                    // Brownian motion (more sophisticated random walk)
+                    const brownianStep = 0.01 * movementSpeed;
+                    const brownianJitter = Math.random() * 2 - 1;
+                    
+                    // Apply fractional Brownian motion with persistence
+                    brownianPosition = brownianPosition * 0.98 + brownianJitter * brownianStep * deltaTime * 60;
+                    
+                    // Keep within bounds
+                    brownianPosition = Math.max(-1, Math.min(1, brownianPosition));
+                    
+                    currentDistortionCenter = centerPoint + brownianPosition * maxRange;
+                    break;
+                    
+                case 'harmonic':
+                    // Harmonic oscillator (physics-based spring)
+                    const springConstant = 2.0;
+                    const harmonicDamping = 0.05;
+                    
+                    // Update phase
+                    harmonicPhase += deltaTime * movementSpeed;
+                    
+                    // Calculate position using harmonic oscillator equation (with damping)
+                    const harmonicValue = Math.cos(Math.sqrt(springConstant) * harmonicPhase) * 
+                                         Math.exp(-harmonicDamping * harmonicPhase);
+                    
+                    // Reset when amplitude gets too low
+                    if (Math.abs(harmonicValue) < 0.1 && !resetTrigger) {
+                        resetTrigger = true;
+                    }
+                    
+                    if (resetTrigger && Math.abs(harmonicValue) < 0.05) {
+                        harmonicPhase = 0;
+                        resetTrigger = false;
+                    }
+                    
+                    currentDistortionCenter = centerPoint + harmonicValue * maxRange;
+                    break;
+                    
+                case 'step':
+                    // Step function with variable number of steps
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    const normalizedStep = (oscillatorPhase % (2 * Math.PI)) / (2 * Math.PI);
+                    
+                    // Create steps (adjustable number)
+                    stepCount = 5; // Could be made configurable
+                    const stepValue = (Math.floor(normalizedStep * stepCount) / (stepCount - 1)) * 2 - 1;
+                    
+                    currentDistortionCenter = centerPoint + stepValue * maxRange;
+                    break;
+                    
+                case 'bezier':
+                    // Bezier curve oscillator
+                    bezierT += deltaTime * movementSpeed * 0.5;
+                    if (bezierT > 1.0) bezierT = 0.0;
+                    
+                    // Define control points for interesting movement
+                    const p0 = -1.0; // Start position
+                    const p1 = 1.0;  // First control point
+                    const p2 = -0.5; // Second control point
+                    const p3 = 1.0;  // End position
+                    
+                    // Use the cubic Bezier function
+                    const bezierValue = cubicBezier(bezierT, p0, p1, p2, p3);
+                    
+                    currentDistortionCenter = centerPoint + bezierValue * maxRange;
+                    break;
+                    
+                case 'cubic':
+                    // Cubic polynomial oscillator
+                    oscillatorPhase += deltaTime * movementSpeed;
+                    const normalizedCubic = (oscillatorPhase % (2 * Math.PI)) / (2 * Math.PI);
+                    
+                    // Map 0-1 to -1 to 1
+                    const x = normalizedCubic * 2 - 1;
+                    
+                    // Cubic polynomial with multiple inflection points: f(x) = 0.5x^3 - 0.8x^2 + 0.3x
+                    const a = 0.5, b = -0.8, c = 0.3, d = 0;
+                    const cubicValue = (a * x * x * x + b * x * x + c * x + d);
+                    
+                    // Normalize to -1 to 1 range
+                    const normalizedCubicValue = Math.max(-1, Math.min(1, cubicValue));
+                    
+                    currentDistortionCenter = centerPoint + normalizedCubicValue * maxRange;
+                    break;
+                    
                 case 'static':
                 default:
                     // Static position from slider
@@ -1014,9 +1310,17 @@
                 if (!audioContext) {
                     audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     audioAnalyser = audioContext.createAnalyser();
-                    audioAnalyser.fftSize = 256;
+                    
+                    // Use a larger FFT size for better frequency resolution
+                    audioAnalyser.fftSize = 2048; // Larger FFT size for better frequency resolution
+                    audioAnalyser.smoothingTimeConstant = 0.85; // Smoother transitions
+                    
                     const bufferLength = audioAnalyser.frequencyBinCount;
                     audioDataArray = new Uint8Array(bufferLength);
+                    
+                    // Reset smoothing buffers
+                    prevAudioValues = [];
+                    fundamentalBuffer = [];
                 }
                 
                 // Get user media
@@ -1049,6 +1353,11 @@
         movementTypeQuickSelect.addEventListener('change', () => {
             movementTypeSelect.value = movementTypeQuickSelect.value;
             updateValueDisplays();
+            saveSettings();
+            
+            // Reset filter value when changing movement type
+            filteredValue = 0;
+            
             if (movementTypeSelect.value !== 'static') {
                 startAnimation();
             } else {
@@ -1090,6 +1399,11 @@
         
         movementTypeSelect.addEventListener('change', () => {
             updateValueDisplays();
+            saveSettings();
+            
+            // Reset filter value when changing movement type
+            filteredValue = 0;
+            
             if (movementTypeSelect.value !== 'static') {
                 startAnimation();
             } else {
@@ -1707,6 +2021,29 @@
                 console.warn('Could not initialize shader effects - WebGL not supported');
             }
         });
+        
+        // Add this event listener with the other ones
+        lowPassFilterControl.addEventListener('input', () => {
+            updateValueDisplays();
+            saveSettings();
+        });
+        
+        pendulumAccelerationControl.addEventListener('input', () => {
+            updateValueDisplays();
+            saveSettings();
+        });
+        
+        // Add this helper function for cubic Bezier calculation
+        function cubicBezier(t, p0, p1, p2, p3) {
+            const oneMinusT = 1 - t;
+            const oneMinusTSquared = oneMinusT * oneMinusT;
+            const oneMinusTCubed = oneMinusTSquared * oneMinusT;
+            const tSquared = t * t;
+            const tCubed = tSquared * t;
+            
+            return oneMinusTCubed * p0 + 3 * oneMinusTSquared * t * p1 + 
+                   3 * oneMinusT * tSquared * p2 + tCubed * p3;
+        }
     </script>
 </body>
 </html>
