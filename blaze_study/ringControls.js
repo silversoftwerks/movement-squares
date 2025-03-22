@@ -1,75 +1,56 @@
-// blaze.js - Main application entry point and initialization
+// Ring Controls management
 
-// Initialize - the main entry point
-function initialize() {
-    // Add new color schemes
-    addNewColorSchemes();
-    
-    // First load all global settings
-    loadSettings();
-    
-    // Then create the ring controls based on the loaded ring count
-    createRingWidthControls();
-    
-    // Create template controls
-    createTemplateControls();
-    
-    // Add preset natural phenomena templates
-    initializePresetTemplates();
-    
-    // Initialize rotations based on the ring count
-    initRotations(parseInt(ringCountControl.value));
-    
-    // Update the color scheme dropdown to include the new options
-    updateColorSchemeOptions();
-    
-    // Set up the canvas
-    setupCanvas();
-    
-    // Start animation
-    startAnimation();
-}
-
-// Call initialize when document is ready
-document.addEventListener('DOMContentLoaded', initialize);
-
-// Fix the Canvas2D fallback function
-
-// Canvas setup
-const canvas = document.getElementById('blazeCanvas');
-const ctx = canvas.getContext('2d');
-
-// Make the canvas a perfect square
-let size = Math.min(window.innerWidth, window.innerHeight) * 0.8;
-canvas.width = size;
-canvas.height = size;
-
-// Set up variables for the pattern
-let centerX = size / 2;
-let centerY = size / 2;
-let maxRadius = size * 0.45; // Slightly smaller than canvas
-
-// Animation variables
-let animationId;
-let isPaused = false;
-const ringRotations = []; // Track rotation angle for each ring
-const ringOscillationPhases = [];
-
-// Initialize the ring rotations
-function initRotations(ringCount) {
-    ringRotations.length = 0;
-    ringOscillationPhases.length = 0;
-    for (let i = 0; i < ringCount; i++) {
-        ringRotations.push(0); // Start at 0 rotation
-        ringOscillationPhases.push(0);
-    }
-}
-
-// Modify the createRingWidthControls function
+// Create ring width controls
 function createRingWidthControls() {
     console.log("Creating ring width controls");
+    
+    // Check if ringCountControl exists, if not we need to initialize controls
+    if (!ringCountControl && typeof initializeControls === 'function') {
+        initializeControls();
+    }
+    
+    // Still need to check if the control is available
+    if (!ringCountControl) {
+        console.error("Ring count control not available. Ring controls cannot be created.");
+        return;
+    }
+    
     const ringCount = parseInt(ringCountControl.value);
     const container = document.getElementById('individualRingWidths');
+    
+    // Check if the container exists
+    if (!container) {
+        console.error("Individual ring widths container not found. Creating it...");
+        
+        // Try to find where to add it
+        const controlSections = document.querySelector('.control-sections');
+        if (!controlSections) {
+            console.error("Control sections container not found. Cannot create ring controls.");
+            return;
+        }
+        
+        // Create a new section for individual ring controls
+        const ringSection = document.createElement('div');
+        ringSection.className = 'control-section';
+        ringSection.id = 'ringSection';
+        
+        // Add a title
+        const sectionTitle = document.createElement('h2');
+        sectionTitle.className = 'section-title';
+        sectionTitle.textContent = 'Individual Ring Controls';
+        ringSection.appendChild(sectionTitle);
+        
+        // Create the container
+        const newContainer = document.createElement('div');
+        newContainer.id = 'individualRingWidths';
+        ringSection.appendChild(newContainer);
+        
+        // Add to control sections
+        controlSections.appendChild(ringSection);
+        
+        // Now get the newly created container
+        return setTimeout(createRingWidthControls, 0); // Try again after this tick
+    }
     
     // Clear existing controls
     container.innerHTML = '';
@@ -378,287 +359,7 @@ function createRingWidthControls() {
     
     // Instead of setTimeout, directly call our new apply function
     // which will use the stored settings
-    applyRingSettings();
-}
-
-// Auto-collapse controls on mobile
-if (window.innerWidth < 768) {
-    controlsContainer.classList.add('collapsed');
-}
-
-// Get current settings from all controls
-function getCurrentSettings() {
-    // Call the existing saveSettings function to get all current settings
-    // but don't save to localStorage, just return the settings object
-    const settings = {
-        ringCount: parseInt(ringCountControl.value),
-        segmentCount: parseInt(segmentCountControl.value),
-        stripeCount: parseInt(stripeCountControl.value),
-        angleOffset: parseFloat(angleOffsetControl.value),
-        rotationSpeed: parseFloat(rotationSpeedControl.value),
-        alternateRotation: alternateRotationControl.checked,
-        colorScheme: colorSchemeControl.value,
-        stripAngle: parseFloat(stripAngleControl.value),
-        alternateStripAngles: alternateStripAnglesControl.checked,
-        ringWidth: parseInt(ringWidthControl.value),
-        gradientEnabled: gradientEnabledControl.checked,
-        gradientIntensity: parseInt(gradientIntensityControl.value),
-        edgeBrightness: parseInt(edgeBrightnessControl.value),
-        centerDarkness: parseInt(centerDarknessControl.value),
-        gradientWidth: parseFloat(gradientWidthControl.value),
-        gradientCurve: gradientCurveControl.value,
-        primaryColor: primaryColorControl.value,
-        secondaryColor: secondaryColorControl.value,
-        glowEnabled: glowEnabledControl.checked,
-        glowIntensity: glowIntensityControl.value,
-        glowSize: glowSizeControl.value,
-        glowColor: glowColorControl.value,
-        
-        // Individual ring settings
-        ringSettings: []
-    };
-    
-    // Collect all settings for each ring in one coherent structure
-    const ringCount = parseInt(ringCountControl.value);
-    for (let i = 1; i <= ringCount; i++) {
-        const ringData = {
-            width: 100, // Default values
-            solidColor: false,
-            colorChoice: 'primary',
-            oscillate: false,
-            period: 5,
-            customStripeAngle: false,
-            stripeAngle: 0,
-            widthOscillate: false,
-            widthPeriod: 5,
-            widthAmplitude: 50
-        };
-        
-        // Get width
-        const widthControl = document.getElementById(`ring${i}Width`);
-        if (widthControl) {
-            ringData.width = parseInt(widthControl.value);
-        }
-        
-        // Get solid color settings
-        const colorToggle = document.getElementById(`ring${i}SolidColor`);
-        if (colorToggle) {
-            ringData.solidColor = colorToggle.checked;
-        }
-        
-        const colorChoice = document.getElementById(`ring${i}ColorChoice`);
-        if (colorChoice) {
-            ringData.colorChoice = colorChoice.value;
-        }
-        
-        // Get oscillation settings
-        const oscillationToggle = document.getElementById(`ring${i}Oscillate`);
-        if (oscillationToggle) {
-            ringData.oscillate = oscillationToggle.checked;
-        }
-        
-        const periodInput = document.getElementById(`ring${i}Period`);
-        if (periodInput) {
-            ringData.period = parseFloat(periodInput.value);
-        }
-        
-        // Get stripe angle settings
-        const stripeAngleToggle = document.getElementById(`ring${i}CustomStripeAngle`);
-        if (stripeAngleToggle) {
-            ringData.customStripeAngle = stripeAngleToggle.checked;
-        }
-        
-        const stripeAngleInput = document.getElementById(`ring${i}StripeAngle`);
-        if (stripeAngleInput) {
-            ringData.stripeAngle = parseFloat(stripeAngleInput.value);
-        }
-        
-        // Get width oscillation settings
-        const widthOscillationToggle = document.getElementById(`ring${i}WidthOscillate`);
-        if (widthOscillationToggle) {
-            ringData.widthOscillate = widthOscillationToggle.checked;
-        }
-        
-        const widthPeriodInput = document.getElementById(`ring${i}WidthPeriod`);
-        if (widthPeriodInput) {
-            ringData.widthPeriod = parseFloat(widthPeriodInput.value);
-        }
-        
-        const widthAmplitudeInput = document.getElementById(`ring${i}WidthAmplitude`);
-        if (widthAmplitudeInput) {
-            ringData.widthAmplitude = parseInt(widthAmplitudeInput.value);
-        }
-        
-        // Add this ring's settings to the array
-        settings.ringSettings.push(ringData);
+    if (typeof applyRingSettings === 'function') {
+        applyRingSettings();
     }
-    
-    return settings;
-}
-
-// Add function to initialize preset natural phenomena templates
-function initializePresetTemplates() {
-    console.log("Initializing preset natural phenomena templates...");
-    
-    // Use the global naturalTemplatesData variable that's already loaded from the script tag
-    if (window.naturalTemplatesData && window.naturalTemplatesData.length > 0) {
-        const naturalTemplates = window.naturalTemplatesData;
-        console.log(`Using ${naturalTemplates.length} templates from global naturalTemplatesData`);
-        
-        // Get existing templates
-        const existingTemplates = loadTemplateList();
-        const existingNames = existingTemplates.map(t => t.name);
-        
-        // Filter out templates that already exist (by name)
-        const newTemplates = naturalTemplates.filter(t => !existingNames.includes(t.name));
-        
-        if (newTemplates.length > 0 || window.forcePresetTemplates) {
-            // If forcing, replace templates with matching names
-            let combinedTemplates;
-            
-            if (window.forcePresetTemplates) {
-                // Remove any templates that match names in naturalTemplates
-                const naturalNames = naturalTemplates.map(t => t.name);
-                const filteredExisting = existingTemplates.filter(t => !naturalNames.includes(t.name));
-                combinedTemplates = [...filteredExisting, ...naturalTemplates];
-                console.log(`Replaced/added ${naturalTemplates.length} preset templates (force mode)`);
-            } else {
-                // Just add new templates
-                combinedTemplates = [...existingTemplates, ...newTemplates];
-                console.log(`Added ${newTemplates.length} new preset templates`);
-            }
-            
-            // Save to localStorage
-            localStorage.setItem('blazeTemplates', JSON.stringify(combinedTemplates));
-            
-            // Update the template dropdown
-            updateTemplateDropdown();
-        } else {
-            console.log("All natural templates already exist, nothing to add");
-        }
-    } else {
-        console.error("No natural templates data found in global variable");
-        
-        // Fallback to a basic template if needed
-        const existingTemplates = loadTemplateList();
-        if (existingTemplates.length === 0 || window.forcePresetTemplates) {
-            const fallbackTemplate = {
-                name: "Basic Fallback Template",
-                settings: {
-                    ringCount: 8,
-                    ringWidth: 100,
-                    segmentCount: 8,
-                    stripeCount: 5,
-                    angleOffset: 0.02,
-                    rotationSpeed: 0.5,
-                    alternateRotation: true,
-                    colorScheme: "rb",
-                    gradientEnabled: true,
-                    gradientIntensity: 100,
-                    edgeBrightness: 30,
-                    centerDarkness: 25,
-                    gradientWidth: 2.0,
-                    gradientCurve: "sine",
-                    ringData: []
-                }
-            };
-            
-            // Add the fallback to localStorage
-            const combinedTemplates = [...existingTemplates, fallbackTemplate];
-            localStorage.setItem('blazeTemplates', JSON.stringify(combinedTemplates));
-            
-            console.log("Added fallback template due to missing naturalTemplatesData");
-            
-            // Update the template dropdown
-            updateTemplateDropdown();
-        }
-    }
-}
-
-// Add new color schemes
-function addNewColorSchemes() {
-    // First, let's check if we have a switch case for color schemes in drawBlaze function
-    // and add new schemes to it if they don't exist
-    
-    // New color schemes to add
-    const newColorSchemes = [
-        {
-            id: 'deep-ocean',
-            primary: '#003366',    // Deep blue
-            secondary: '#66CCFF'   // Light blue
-        },
-        {
-            id: 'firefly',
-            primary: '#111111',    // Almost black
-            secondary: '#AAFF22'   // Yellow-green
-        },
-        {
-            id: 'wolf-night',
-            primary: '#1A1A2E',    // Dark blue-black
-            secondary: '#E0E0E8'   // Silvery white with blue tint
-        }
-    ];
-    
-    // Store these schemes in global space for the color scheme selection
-    window.customColorSchemes = newColorSchemes;
-    
-    console.log("Added new color schemes for natural phenomena templates");
-}
-
-// Add this function to update the color scheme dropdown
-function updateColorSchemeOptions() {
-    const colorSchemeControl = document.getElementById('colorScheme');
-    if (!colorSchemeControl || !window.customColorSchemes) return;
-    
-    // Check if we already added the custom schemes
-    const existingDeepOcean = Array.from(colorSchemeControl.options).find(option => option.value === 'deep-ocean');
-    if (existingDeepOcean) return; // Already added
-    
-    // Add the new color schemes to the dropdown
-    window.customColorSchemes.forEach(scheme => {
-        const option = document.createElement('option');
-        option.value = scheme.id;
-        
-        // Set display name based on the scheme ID
-        switch(scheme.id) {
-            case 'deep-ocean':
-                option.textContent = 'Deep Ocean (Whale Song)';
-                break;
-            case 'firefly':
-                option.textContent = 'Firefly Night';
-                break;
-            case 'wolf-night':
-                option.textContent = 'Wolf Chorus';
-                break;
-            default:
-                option.textContent = scheme.id;
-        }
-        
-        colorSchemeControl.appendChild(option);
-    });
-}
-
-// Add this helper function for color mixing
-
-// Add a function to update visible ring controls based on ring count
-function updateRingWidthControls() {
-    const ringCount = parseInt(ringCountControl.value);
-    const container = document.getElementById('individualRingWidths');
-    
-    // First hide all controls
-    const allControls = container.querySelectorAll('.ring-width-control');
-    allControls.forEach(control => {
-        control.style.display = 'none';
-    });
-    
-    // Show only the needed controls for current ring count
-    for (let i = 1; i <= ringCount; i++) {
-        const control = document.getElementById(`ring${i}WidthControl`);
-        if (control) {
-            control.style.display = 'block';
-        }
-    }
-}
-
-
-
+} 

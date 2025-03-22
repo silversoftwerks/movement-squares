@@ -1,5 +1,71 @@
 // WebGL helper functions
-
+// Add WebGL setup function
+function setupWebGL() {
+  // Hide the canvas2D element and show the WebGL canvas
+  const canvas2D = document.getElementById('blazeCanvas');
+  canvas2D.style.display = 'none';
+  
+  // Create or show WebGL canvas
+  let glCanvas = document.getElementById('blazeGLCanvas');
+  if (!glCanvas) {
+      glCanvas = document.createElement('canvas');
+      glCanvas.id = 'blazeGLCanvas';
+      glCanvas.width = canvas2D.width;
+      glCanvas.height = canvas2D.height;
+      // Apply the same positioning and sizing as the main canvas
+      glCanvas.style.position = 'fixed';
+      glCanvas.style.top = '-50vw';
+      glCanvas.style.left = '-50vw';
+      glCanvas.style.width = '200vw';
+      glCanvas.style.height = '200vh';
+      canvas2D.parentNode.insertBefore(glCanvas, canvas2D);
+  } else {
+      glCanvas.style.display = 'block';
+  }
+  
+  // Initialize WebGL context
+  const gl = glCanvas.getContext('webgl') || glCanvas.getContext('experimental-webgl');
+  if (!gl) {
+      console.error('Unable to initialize WebGL. Your browser may not support it.');
+      glowEnabledControl.checked = false;
+      setupCanvas2D();
+      return;
+  }
+  
+  try {
+      // Initialize shaders
+      const shaderProgram = initShaderProgram(gl, vertexShaderSource, fragmentShaderSource);
+      if (!shaderProgram) throw new Error("Failed to initialize shader program");
+      
+      const glowProgram = initShaderProgram(gl, vertexShaderSource, glowFragmentShaderSource);
+      if (!glowProgram) throw new Error("Failed to initialize glow shader program");
+      
+      // Create buffers for rendering
+      const buffers = createPlaneBuffers(gl);
+      
+      // Create framebuffer and texture for off-screen rendering
+      const { framebuffer, texture } = createFramebufferTexture(gl, glCanvas.width, glCanvas.height);
+      
+      // Store WebGL objects for later use
+      window.webglContext = {
+          gl,
+          canvas: glCanvas,
+          shaderProgram,
+          glowProgram,
+          buffers,
+          framebuffer,
+          texture
+      };
+      
+      // Start rendering with WebGL
+      drawBlazeWithGlow();
+  } catch (error) {
+      console.error('WebGL initialization error:', error);
+      // Fall back to Canvas2D rendering
+      glowEnabledControl.checked = false;
+      setupCanvas2D();
+  }
+}
 // Initialize a shader program
 function initShaderProgram(gl, vsSource, fsSource) {
   const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);

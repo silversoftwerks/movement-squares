@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bridget Riley's Blaze</title>
+    <title>Blaze Study</title>
+    <link rel="stylesheet" href="styles.css">
     <style>
         :root {
             --primary-color: #e3342f;
@@ -253,200 +254,48 @@
     </style>
 </head>
 <body>
-    <canvas id="blazeCanvas"></canvas>
-    
-    <div class="controls-container collapsed">
-        <div class="bottom-bar">
-            <div class="title-area">
-                <div class="title">Bridget Riley's Blaze</div>
-                <button class="toggle-controls" aria-label="Toggle controls panel"></button>
-            </div>
-            
-            <div>
-                <button id="pausePlay">Pause</button>
-                <button id="resetAnimation">Reset</button>
-            </div>
+    <div class="app-container">
+        <div class="canvas-container">
+            <canvas id="blazeCanvas"></canvas>
+            <div class="controls-toggle" id="controlsToggle">☰</div>
         </div>
         
-        <div class="controls-panel">
-            <div class="control-sections">
-                <div class="control-section">
-                    <h2 class="section-title">Ring Configuration</h2>
-                    
-                    <div class="control-group">
-                        <label for="ringCount">Number of Rings <span class="value-display" id="ringCountValue">12</span></label>
-                        <input type="range" id="ringCount" min="4" max="24" value="12">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label for="ringWidth">Ring Width <span class="value-display" id="ringWidthValue">100%</span></label>
-                        <input type="range" id="ringWidth" min="30" max="300" value="100">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label for="segmentCount">Segments per Ring <span class="value-display" id="segmentCountValue">36</span></label>
-                        <input type="range" id="segmentCount" min="1" max="60" value="36">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label for="stripeCount">Stripes per Segment <span class="value-display" id="stripeCountValue">7</span></label>
-                        <input type="range" id="stripeCount" min="1" max="360" value="7">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label for="angleOffset">Segment Angle Offset <span class="value-display" id="angleOffsetValue">0.02</span></label>
-                        <input type="range" id="angleOffset" min="0" max="0.1" step="0.005" value="0.02">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label for="stripAngle">Stripe Angle <span class="value-display" id="stripAngleValue">0°</span></label>
-                        <input type="range" id="stripAngle" min="-45" max="45" step="1" value="0">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label>
-                            <input type="checkbox" id="alternateStripAngles" checked> Alternate Strip Angles Between Rings
-                        </label>
-                    </div>
-                </div>
+        <div class="controls-container" id="controlsContainer">
+            <div class="controls-panel">
+                <h1>Blaze Pattern Settings</h1>
                 
-                <div class="control-section">
-                    <h2 class="section-title">Individual Ring Widths</h2>
-                    <div id="individualRingWidths">
-                        <!-- Ring width controls will be generated here programmatically -->
-                    </div>
+                <div class="control-sections">
+                    <!-- Sections will be added here by JavaScript -->
                 </div>
-                
-                <div class="control-section">
-                    <h2 class="section-title">Animation</h2>
-                    
-                    <div class="control-group">
-                        <label for="rotationSpeed">Rotation Speed <span class="value-display" id="rotationSpeedValue">0.0005</span></label>
-                        <input type="range" id="rotationSpeed" min="0.0001" max="0.002" step="0.0001" value="0.0005">
-                    </div>
-                    
-                    <div class="control-group">
-                        <label>
-                            <input type="checkbox" id="alternateRotation" checked> Alternate Ring Rotation
-                        </label>
-                    </div>
-                    
-                    <div class="control-group">
-                        <label for="colorScheme">Color Scheme</label>
-                        <select id="colorScheme">
-                            <option value="bw">Black & White (Classic Op Art)</option>
-                            <option value="rb">Red & Blue</option>
-                            <option value="yg">Yellow & Green</option>
-                            <option value="egypt1">Egyptian Palette: Turquoise & Gold</option>
-                            <option value="egypt2">Egyptian Palette: Red & Blue</option>
-                            <option value="ra">Ra Series: Red & Cream</option>
-                            <option value="chant">Chant Series: Blue & Gold</option>
-                            <option value="late70s">Late 70s: Purple & Green</option>
-                            <option value="rajasthan">Rajasthan: Orange & Blue</option>
-                            <option value="custom">Custom Colors</option>
-                            <option value="psychedelic">Psychedelic (Pink & Turquoise)</option>
-                        </select>
-                    </div>
-                    
-                    <div class="control-group" id="customColorGroup" style="display:none;">
-                        <label for="primaryColor">Primary Color</label>
-                        <input type="color" id="primaryColor" value="#000000">
-                        
-                        <label for="secondaryColor">Secondary Color</label>
-                        <input type="color" id="secondaryColor" value="#FFFFFF">
-                    </div>
-                </div>
-                
-                <div class="control-section">
-                    <h2 class="section-title">Stripe Texture</h2>
-                    
-                    <div class="control-group">
-                        <label for="gradientEnabled">
-                            <input type="checkbox" id="gradientEnabled" checked> Enable Gradient Texture
-                        </label>
-                    </div>
-                    
-                    <div id="gradientControls">
-                        <div class="control-group">
-                            <label for="gradientIntensity">Intensity <span class="value-display" id="gradientIntensityValue">100%</span></label>
-                            <input type="range" id="gradientIntensity" min="0" max="200" value="100">
-                        </div>
-                        
-                        <div class="control-group">
-                            <label for="edgeBrightness">Edge Brightness <span class="value-display" id="edgeBrightnessValue">30</span></label>
-                            <input type="range" id="edgeBrightness" min="0" max="80" value="30">
-                        </div>
-                        
-                        <div class="control-group">
-                            <label for="centerDarkness">Center Darkness <span class="value-display" id="centerDarknessValue">25</span></label>
-                            <input type="range" id="centerDarkness" min="0" max="80" value="25">
-                        </div>
-                        
-                        <div class="control-group">
-                            <label for="gradientWidth">Gradient Width <span class="value-display" id="gradientWidthValue">2.0</span></label>
-                            <input type="range" id="gradientWidth" min="0.5" max="5" step="0.1" value="2.0">
-                        </div>
-                        
-                        <div class="control-group">
-                            <label for="gradientCurve">Gradient Curve</label>
-                            <select id="gradientCurve">
-                                <option value="linear">Linear</option>
-                                <option value="ease-in">Ease In</option>
-                                <option value="ease-out">Ease Out</option>
-                                <option value="ease-in-out">Ease In-Out</option>
-                                <option value="trapezoid">Trapezoid (Flat Center)</option>
-                                <option value="step">Step</option>
-                                <option value="sine">Sine Wave</option>
-                                <option value="double-peak">Double Peak</option>
-                                <option value="triangle">Sharp Triangle</option>
-                                <option value="organic">Organic</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="control-section">
-                    <h2 class="section-title">Glow Effects</h2>
-                    
-                    <div class="control-group">
-                        <label for="glowEnabled">
-                            <input type="checkbox" id="glowEnabled"> Enable Glow Effects (WebGL)
-                        </label>
-                    </div>
-                    
-                    <div id="glowControls" style="display:none;">
-                        <div class="control-group">
-                            <label for="glowIntensity">Glow Intensity <span class="value-display" id="glowIntensityValue">50%</span></label>
-                            <input type="range" id="glowIntensity" min="10" max="200" value="50">
-                        </div>
-                        
-                        <div class="control-group">
-                            <label for="glowSize">Glow Size <span class="value-display" id="glowSizeValue">3.0</span></label>
-                            <input type="range" id="glowSize" min="1" max="10" step="0.5" value="3.0">
-                        </div>
-                        
-                        <div class="control-group">
-                            <label for="glowColor">Glow Color</label>
-                            <input type="color" id="glowColor" value="#00AAFF">
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="info-box">
-                <p>Interactive recreation of Bridget Riley's "Blaze" (1964), originally a black and white op art piece. This version includes colors inspired by Riley's later works:</p>
-                <ul style="margin-top: 8px; padding-left: 20px;">
-                    <li><strong>Egyptian Palette:</strong> Inspired by her visits to Egypt in the 1980s, featuring colors like turquoise, ochre, red, and lapis blue.</li>
-                    <li><strong>Ra/Chant Series:</strong> From her works with warm and cool color interactions.</li>
-                    <li><strong>Late 70s:</strong> When Riley began exploring color relationships more extensively.</li>
-                    <li><strong>Rajasthan:</strong> Bold complementary colors inspired by her travels in India.</li>
-                </ul>
             </div>
         </div>
     </div>
     
+    <!-- Order matters for script loading -->
+    <!-- Load shared utility scripts first -->
+    <script src="common.js"></script>
+    <script src="natural_templates_data.js"></script>
+    <script src="dynamic-styles.js"></script>
+    <script src="utils.js"></script>
+    <script src="createBasicUI.js"></script>
+    
+    <!-- Load helper modules next -->
+    <script src="colorSchemes.js"></script>
+    <script src="templates.js"></script>
+    
+    <!-- Load settings-related scripts -->
+    <script src="settings.js"></script>
+    <script src="ringControls.js"></script>
+    <script src="updateRingWidthControls.js"></script>
+    
+    <!-- Canvas and WebGL handling -->
+    <script src="canvas.js"></script>
+    <script src="drawing.js"></script>
+    
+    <!-- UI management -->
+    <script src="UI.js"></script>
+    
+    <!-- Main application script last -->
     <script src="blaze.js"></script>
-    <script src="shaders.js"></script>
-    <script src="webgl-utils.js"></script>
 </body>
 </html> 

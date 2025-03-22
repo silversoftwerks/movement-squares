@@ -1,0 +1,293 @@
+/* Base styles */
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Arial', sans-serif;
+    background-color: #f5f5f5;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.app-container {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+}
+
+.canvas-container {
+    flex: 1;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f0f0f0;
+    overflow: hidden;
+}
+
+canvas {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Controls styling */
+.controls-toggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 10;
+}
+
+.controls-container {
+    width: 380px;
+    height: 100vh;
+    overflow-y: auto;
+    background-color: white;
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+}
+
+.controls-container.collapsed {
+    transform: translateX(100%);
+}
+
+.controls-panel {
+    padding: 20px;
+}
+
+.controls-panel h1 {
+    font-size: 24px;
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.control-section {
+    margin-bottom: 30px;
+    border-radius: 8px;
+    padding: 15px;
+    background-color: #f9f9f9;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+    font-size: 18px;
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #444;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+}
+
+.control-group {
+    margin-bottom: 15px;
+}
+
+.control-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #555;
+}
+
+.control-group input[type="range"] {
+    width: 100%;
+    margin-top: 5px;
+}
+
+.control-group select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    background-color: white;
+}
+
+.control-group input[type="color"] {
+    width: 70px;
+    height: 30px;
+    border: none;
+    border-radius: 4px;
+    padding: 0;
+    vertical-align: middle;
+}
+
+.value-display {
+    font-weight: normal;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.info-box {
+    background-color: #e9f5ff;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 20px;
+    color: #333;
+    line-height: 1.5;
+}
+
+button {
+    background-color: #4a90e2;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+button:hover {
+    background-color: #3a7bc8;
+}
+
+/* Ring control specific styles */
+.ring-width-scrollable {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 10px;
+    background-color: white;
+}
+
+.ring-width-control {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+.ring-control-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.ring-control-row label {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.color-toggle-label {
+    display: flex;
+    align-items: center;
+}
+
+.ring-solid-toggle {
+    margin-right: 8px;
+}
+
+.ring-color-select {
+    width: 100px;
+    height: 28px;
+}
+
+.oscillation-toggle-label {
+    display: flex;
+    align-items: center;
+    width: 80px;
+}
+
+.ring-oscillate-toggle {
+    margin-right: 8px;
+}
+
+.period-label {
+    margin: 0 8px;
+    width: 50px;
+}
+
+.period-input {
+    width: 100px;
+}
+
+.stripe-angle-toggle-label {
+    display: flex;
+    align-items: center;
+    width: 150px;
+}
+
+.ring-stripe-angle-toggle {
+    margin-right: 8px;
+}
+
+.stripe-angle-label {
+    margin: 0 8px;
+    width: 40px;
+}
+
+.stripe-angle-input {
+    width: 100px;
+}
+
+.amplitude-label {
+    margin: 0 8px;
+    width: 40px;
+}
+
+.amplitude-input {
+    width: 100px;
+}
+
+.width-amplitude-row {
+    padding-left: 80px;
+}
+
+/* Template controls styling */
+.template-name-input {
+    width: 100%;
+    height: 32px;
+    padding: 0 8px;
+    border: 2px solid #ddd;
+    margin-bottom: 10px;
+}
+
+.template-button {
+    margin-top: 5px;
+    margin-right: 10px;
+}
+
+.template-button-group {
+    display: flex;
+    margin-top: 10px;
+}
+
+.template-load-group {
+    margin-top: 20px;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 768px) {
+    .app-container {
+        flex-direction: column;
+    }
+    
+    .controls-container {
+        width: 100%;
+        height: 50vh;
+    }
+    
+    .controls-container.collapsed {
+        transform: translateY(100%);
+    }
+    
+    .controls-toggle {
+        top: auto;
+        bottom: 20px;
+    }
+} 
