@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blaze Pattern Generator</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            background-color: #ffffff;
+            transition: background-color 0.5s ease;
+        }
+        
+        body.dark-background {
+            background-color: #111111;
+            color: #ffffff;
+        }
+        
+        body.dark-background .controls {
+            background-color: rgba(0, 0, 0, 0.7);
+            border-color: #333;
+        }
+        
+        body.dark-background .controls label {
+            color: #ddd;
+        }
+        
+        body.dark-background .controls button,
+        body.dark-background .controls select,
+        body.dark-background .controls input[type="range"] {
+            background-color: #333;
+            color: #ddd;
+            border-color: #555;
+        }
+        
+        canvas {
+            position: fixed;
+            top: -50vw;
+            left: -50vw;
+            width: 200vw;
+            height: 200vh;
+            z-index: -1;
+        }
+        
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            max-height: 90vh;
+            overflow-y: auto;
+            z-index: 100;
+            min-width: 280px;
+            border: 1px solid #ddd;
+        }
+        
+        .controls h1 {
+            margin-top: 0;
+            font-size: 1.5em;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .control-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .control-label {
+            flex: 1;
+            margin-right: 10px;
+        }
+        
+        .control-input {
+            flex: 2;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+        }
+        
+        input[type="color"] {
+            width: 60px;
+            height: 30px;
+            border: none;
+            cursor: pointer;
+        }
+        
+        select {
+            width: 100%;
+            padding: 5px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+        }
+        
+        button {
+            padding: 8px 12px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        .value-display {
+            display: inline-block;
+            width: 40px;
+            text-align: center;
+            margin-left: 5px;
+        }
+        
+        #webglControls {
+            display: none;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="blazeCanvas"></canvas>
+    
+    <div class="controls">
+        <h1>Blaze Pattern Generator</h1>
+        
+        <div class="control-group">
+            <button id="playPause">Pause</button>
+            <button id="screenshot">Take Screenshot</button>
+            <button id="resetControls">Reset</button>
+        </div>
+        
+        <div class="control-group">
+            <h3>Colors</h3>
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="primaryColor">Primary Color</label>
+                </div>
+                <div class="control-input">
+                    <input type="color" id="primaryColor" value="#FF0055">
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="secondaryColor">Secondary Color</label>
+                </div>
+                <div class="control-input">
+                    <input type="color" id="secondaryColor" value="#55DDFF">
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="colorScheme">Color Scheme</label>
+                </div>
+                <div class="control-input">
+                    <select id="colorScheme">
+                        <option value="complementary">Complementary</option>
+                        <option value="analogous">Analogous</option>
+                        <option value="triadic">Triadic</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="backgroundToggle">Dark Background</label>
+                </div>
+                <div class="control-input">
+                    <input type="checkbox" id="backgroundToggle">
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <h3>Pattern</h3>
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="banding">Banding</label>
+                </div>
+                <div class="control-input">
+                    <input type="range" id="banding" min="2" max="20" value="5">
+                    <span id="bandingValue" class="value-display">5</span>
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="curveType">Curve Type</label>
+                </div>
+                <div class="control-input">
+                    <select id="curveType">
+                        <option value="linear">Linear</option>
+                        <option value="ease-in">Ease In</option>
+                        <option value="ease-out">Ease Out</option>
+                        <option value="ease-in-out">Ease In-Out</option>
+                        <option value="step">Step</option>
+                        <option value="sine">Sine</option>
+                        <option value="trapezoid" selected>Trapezoid</option>
+                        <option value="triangle">Triangle</option>
+                        <option value="double-peak">Double Peak</option>
+                        <option value="organic">Organic</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="patternType">Pattern Type</label>
+                </div>
+                <div class="control-input">
+                    <select id="patternType">
+                        <option value="spiral" selected>Spiral</option>
+                        <option value="alternating">Alternating</option>
+                        <option value="gradient">Gradient</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="brightnessVariation">Brightness Variation</label>
+                </div>
+                <div class="control-input">
+                    <input type="range" id="brightnessVariation" min="0" max="5" step="0.1" value="1.5">
+                    <span id="brightnessValue" class="value-display">1.5</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <h3>Rings</h3>
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="ringSpacing">Ring Spacing</label>
+                </div>
+                <div class="control-input">
+                    <input type="range" id="ringSpacing" min="5" max="50" value="20">
+                    <span id="ringSpacingValue" class="value-display">20</span>
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="ringCount">Ring Count</label>
+                </div>
+                <div class="control-input">
+                    <input type="range" id="ringCount" min="1" max="100" value="50">
+                    <span id="ringCountValue" class="value-display">50</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <h3>Animation</h3>
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="rotationAngle">Rotation Angle</label>
+                </div>
+                <div class="control-input">
+                    <input type="range" id="rotationAngle" min="0" max="2" step="0.1" value="0.5">
+                    <span id="rotationAngleValue" class="value-display">0.5</span>
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="oscillationSpeed">Oscillation Speed</label>
+                </div>
+                <div class="control-input">
+                    <input type="range" id="oscillationSpeed" min="0" max="5" step="0.1" value="2.0">
+                    <span id="oscillationSpeedValue" class="value-display">2.0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <h3>Display</h3>
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="canvasSize">Canvas Size</label>
+                </div>
+                <div class="control-input">
+                    <select id="canvasSize">
+                        <option value="600">Small (600x600)</option>
+                        <option value="800" selected>Medium (800x800)</option>
+                        <option value="1200">Large (1200x1200)</option>
+                        <option value="1600">Extra Large (1600x1600)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="webglToggle">Use WebGL (Experimental)</label>
+                </div>
+                <div class="control-input">
+                    <input type="checkbox" id="webglToggle">
+                </div>
+            </div>
+        </div>
+        
+        <div id="webglControls" class="control-group">
+            <h3>WebGL Effects</h3>
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="glowColor">Glow Color</label>
+                </div>
+                <div class="control-input">
+                    <input type="color" id="glowColor" value="#FFFFFF">
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="glowIntensity">Glow Intensity</label>
+                </div>
+                <div class="control-input">
+                    <input type="range" id="glowIntensity" min="0" max="100" value="25">
+                    <span id="glowIntensityValue" class="value-display">25</span>
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="control-label">
+                    <label for="glowSize">Glow Size</label>
+                </div>
+                <div class="control-input">
+                    <input type="range" id="glowSize" min="0" max="10" step="0.1" value="3.0">
+                    <span id="glowSizeValue" class="value-display">3.0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <h3>Templates</h3>
+            <div class="control-row">
+                <select id="templateSelector"></select>
+            </div>
+            <div class="control-row">
+                <button id="saveTemplate">Save Template</button>
+                <button id="loadTemplate">Load Template</button>
+                <button id="deleteTemplate">Delete Template</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Import the main JS module with type="module" -->
+    <script type="module" src="blaze-refactored.js"></script>
+</body>
+</html> 

@@ -937,13 +937,46 @@ document.addEventListener('DOMContentLoaded', function() {
                         break;
                         
                     case 'trapezoid':
-                        // Angled transitions with flat center (what you requested)
-                        gradient.addColorStop(0, lighterColor);
-                        gradient.addColorStop(0.25, deeperColor);  // Linear transition to deep
-                        gradient.addColorStop(0.45, deeperColor);   // Flat section
-                        gradient.addColorStop(0.55, deeperColor);   // Flat section
-                        gradient.addColorStop(0.75, lighterColor); // Linear transition back
-                        gradient.addColorStop(1, lighterColor);
+                        // New approach: Use a more accurate trapezoid pattern that ensures
+                        // the gradient rises back up on both sides of the stripe
+                        
+                        // First, determine whether we're applying the gradient across the width or length
+                        // We'll use stripe width for better visual consistency
+                        const isUsingStripeWidth = true; // Use width-based gradient for better visual effect
+                        
+                        if (isUsingStripeWidth) {
+                            // This is a 2-part approach:
+                            // 1. Fill with base color
+                            // 2. Create inner highlight pattern that follows edges
+                            
+                            // Clear existing gradient stops
+                            gradient = ctx.createLinearGradient(
+                                gradientX1, gradientY1,
+                                gradientX2, gradientY2
+                            );
+                            
+                            // Calculate the stripe width ratio - how much of the gradient should be darker
+                            const stripeWidthRatio = 0.5; // 50% of width is darker
+                            
+                            // Base gradient has the deeper color in the center and lighter color at the edges
+                            gradient.addColorStop(0, lighterColor);
+                            gradient.addColorStop(0.1, mixColors(lighterColor, deeperColor, 0.3));
+                            gradient.addColorStop(0.2, mixColors(lighterColor, deeperColor, 0.6));
+                            gradient.addColorStop(0.35, deeperColor);
+                            gradient.addColorStop(0.5, deeperColor);
+                            gradient.addColorStop(0.65, deeperColor);
+                            gradient.addColorStop(0.8, mixColors(deeperColor, lighterColor, 0.6));
+                            gradient.addColorStop(0.9, mixColors(deeperColor, lighterColor, 0.3));
+                            gradient.addColorStop(1, lighterColor);
+                        } else {
+                            // Original trapezoid gradient implementation as fallback
+                            gradient.addColorStop(0, lighterColor);
+                            gradient.addColorStop(0.25, deeperColor);  // Linear transition to deep
+                            gradient.addColorStop(0.45, deeperColor);   // Flat section
+                            gradient.addColorStop(0.55, deeperColor);   // Flat section
+                            gradient.addColorStop(0.75, lighterColor); // Linear transition back
+                            gradient.addColorStop(1, lighterColor);
+                        }
                         break;
                         
                     case 'double-peak':
