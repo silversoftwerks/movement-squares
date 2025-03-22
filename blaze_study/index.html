@@ -30,10 +30,10 @@
         canvas {
             display: block;
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
+            top: -50vw;
+            left: -50vw;
+            width: 200vw;
+            height: 200vh;
         }
         
         .controls-container {
@@ -257,6 +257,11 @@
                     </div>
                     
                     <div class="control-group">
+                        <label for="ringWidth">Ring Width <span class="value-display" id="ringWidthValue">100%</span></label>
+                        <input type="range" id="ringWidth" min="30" max="300" value="100">
+                    </div>
+                    
+                    <div class="control-group">
                         <label for="segmentCount">Segments per Ring <span class="value-display" id="segmentCountValue">36</span></label>
                         <input type="range" id="segmentCount" min="12" max="72" value="36">
                     </div>
@@ -287,8 +292,8 @@
                     <h2 class="section-title">Animation</h2>
                     
                     <div class="control-group">
-                        <label for="rotationSpeed">Rotation Speed <span class="value-display" id="rotationSpeedValue">0.005</span></label>
-                        <input type="range" id="rotationSpeed" min="0.001" max="0.02" step="0.001" value="0.005">
+                        <label for="rotationSpeed">Rotation Speed <span class="value-display" id="rotationSpeedValue">0.0005</span></label>
+                        <input type="range" id="rotationSpeed" min="0.0001" max="0.002" step="0.0001" value="0.0005">
                     </div>
                     
                     <div class="control-group">
@@ -310,6 +315,7 @@
                             <option value="late70s">Late 70s: Purple & Green</option>
                             <option value="rajasthan">Rajasthan: Orange & Blue</option>
                             <option value="custom">Custom Colors</option>
+                            <option value="psychedelic">Psychedelic (Pink & Turquoise)</option>
                         </select>
                     </div>
                     
@@ -319,6 +325,81 @@
                         
                         <label for="secondaryColor">Secondary Color</label>
                         <input type="color" id="secondaryColor" value="#FFFFFF">
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h2 class="section-title">Stripe Texture</h2>
+                    
+                    <div class="control-group">
+                        <label for="gradientEnabled">
+                            <input type="checkbox" id="gradientEnabled" checked> Enable Gradient Texture
+                        </label>
+                    </div>
+                    
+                    <div id="gradientControls">
+                        <div class="control-group">
+                            <label for="gradientIntensity">Intensity <span class="value-display" id="gradientIntensityValue">100%</span></label>
+                            <input type="range" id="gradientIntensity" min="0" max="200" value="100">
+                        </div>
+                        
+                        <div class="control-group">
+                            <label for="edgeBrightness">Edge Brightness <span class="value-display" id="edgeBrightnessValue">30</span></label>
+                            <input type="range" id="edgeBrightness" min="0" max="80" value="30">
+                        </div>
+                        
+                        <div class="control-group">
+                            <label for="centerDarkness">Center Darkness <span class="value-display" id="centerDarknessValue">25</span></label>
+                            <input type="range" id="centerDarkness" min="0" max="80" value="25">
+                        </div>
+                        
+                        <div class="control-group">
+                            <label for="gradientWidth">Gradient Width <span class="value-display" id="gradientWidthValue">2.0</span></label>
+                            <input type="range" id="gradientWidth" min="0.5" max="5" step="0.1" value="2.0">
+                        </div>
+                        
+                        <div class="control-group">
+                            <label for="gradientCurve">Gradient Curve</label>
+                            <select id="gradientCurve">
+                                <option value="linear">Linear</option>
+                                <option value="ease-in">Ease In</option>
+                                <option value="ease-out">Ease Out</option>
+                                <option value="ease-in-out">Ease In-Out</option>
+                                <option value="trapezoid">Trapezoid (Flat Center)</option>
+                                <option value="step">Step</option>
+                                <option value="sine">Sine Wave</option>
+                                <option value="double-peak">Double Peak</option>
+                                <option value="triangle">Sharp Triangle</option>
+                                <option value="organic">Organic</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="control-section">
+                    <h2 class="section-title">Glow Effects</h2>
+                    
+                    <div class="control-group">
+                        <label for="glowEnabled">
+                            <input type="checkbox" id="glowEnabled"> Enable Glow Effects (WebGL)
+                        </label>
+                    </div>
+                    
+                    <div id="glowControls" style="display:none;">
+                        <div class="control-group">
+                            <label for="glowIntensity">Glow Intensity <span class="value-display" id="glowIntensityValue">50%</span></label>
+                            <input type="range" id="glowIntensity" min="10" max="200" value="50">
+                        </div>
+                        
+                        <div class="control-group">
+                            <label for="glowSize">Glow Size <span class="value-display" id="glowSizeValue">3.0</span></label>
+                            <input type="range" id="glowSize" min="1" max="10" step="0.5" value="3.0">
+                        </div>
+                        
+                        <div class="control-group">
+                            <label for="glowColor">Glow Color</label>
+                            <input type="color" id="glowColor" value="#00AAFF">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -336,5 +417,7 @@
     </div>
     
     <script src="blaze.js"></script>
+    <script src="shaders.js"></script>
+    <script src="webgl-utils.js"></script>
 </body>
 </html> 
