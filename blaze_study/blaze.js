@@ -341,6 +341,13 @@ document.addEventListener('DOMContentLoaded', function() {
             // Calculate a ring phase to ensure consistent color alternation
             const ringPhase = r % 2;
             
+            // Check if this ring should use a solid color
+            const solidColorToggle = document.getElementById(`ring${r+1}SolidColor`);
+            const colorChoice = document.getElementById(`ring${r+1}ColorChoice`);
+            
+            const useSolidColor = solidColorToggle && solidColorToggle.checked;
+            const solidColorChoice = colorChoice ? colorChoice.value : 'primary';
+            
             // Adjust the segments based on the ring count to create visual interest
             for (let i = 0; i < segments; i++) {
                 const startAngle = (i / segments) * Math.PI * 2 + ringRotation;
@@ -355,26 +362,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 const segmentPhase = i % 2;
                 const isPrimarySegment = forceRingPrimaryColor || (segmentPhase === ringPhase);
                 
-                drawStripedRingSegment(
-                    centerX, 
-                    centerY, 
-                    outerRadius, 
-                    innerRadius, 
-                    startAngle, 
-                    endAngle, 
-                    isPrimarySegment,
-                    primaryColor,
-                    secondaryColor,
-                    stripeCount,
-                    angleOffsetValue,
-                    alternateStripAngles ? (r % 2 === 0 ? stripAngle : -stripAngle) : stripAngle,
-                    gradientEnabled,
-                    gradientIntensity,
-                    edgeBrightness,
-                    centerDarkness,
-                    gradientWidth,
-                    gradientCurve
-                );
+                // If using solid color, skip the striping and just fill the segment
+                if (useSolidColor) {
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, outerRadius, startAngle, endAngle);
+                    ctx.arc(centerX, centerY, innerRadius, endAngle, startAngle, true);
+                    ctx.closePath();
+                    
+                    // Use selected color
+                    ctx.fillStyle = solidColorChoice === 'primary' ? primaryColor : secondaryColor;
+                    ctx.fill();
+                } else {
+                    drawStripedRingSegment(
+                        centerX, 
+                        centerY, 
+                        outerRadius, 
+                        innerRadius, 
+                        startAngle, 
+                        endAngle, 
+                        isPrimarySegment,
+                        primaryColor,
+                        secondaryColor,
+                        stripeCount,
+                        angleOffsetValue,
+                        alternateStripAngles ? (r % 2 === 0 ? stripAngle : -stripAngle) : stripAngle,
+                        gradientEnabled,
+                        gradientIntensity,
+                        edgeBrightness,
+                        centerDarkness,
+                        gradientWidth,
+                        gradientCurve
+                    );
+                }
             }
         }
         
@@ -456,16 +475,33 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to save settings
     function saveSettings() {
-        // Get all current individual ring width values
+        // Get all current individual ring settings
         const ringCount = parseInt(ringCountControl.value);
         const individualRingWidths = [];
+        const individualRingSolidColors = [];
+        const individualRingColorChoices = [];
         
         for (let i = 1; i <= ringCount; i++) {
-            const control = document.getElementById(`ring${i}Width`);
-            if (control) {
-                individualRingWidths.push(parseInt(control.value));
+            const widthControl = document.getElementById(`ring${i}Width`);
+            const colorToggle = document.getElementById(`ring${i}SolidColor`);
+            const colorChoice = document.getElementById(`ring${i}ColorChoice`);
+            
+            if (widthControl) {
+                individualRingWidths.push(parseInt(widthControl.value));
             } else {
-                individualRingWidths.push(100); // Default to 100% if control doesn't exist
+                individualRingWidths.push(100);
+            }
+            
+            if (colorToggle) {
+                individualRingSolidColors.push(colorToggle.checked);
+            } else {
+                individualRingSolidColors.push(false);
+            }
+            
+            if (colorChoice) {
+                individualRingColorChoices.push(colorChoice.value);
+            } else {
+                individualRingColorChoices.push('primary');
             }
         }
         
@@ -492,7 +528,9 @@ document.addEventListener('DOMContentLoaded', function() {
             glowIntensity: glowIntensityControl.value,
             glowSize: glowSizeControl.value,
             glowColor: glowColorControl.value,
-            individualRingWidths: individualRingWidths
+            individualRingWidths,
+            individualRingSolidColors,
+            individualRingColorChoices
         };
         
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -966,7 +1004,7 @@ document.addEventListener('DOMContentLoaded', function() {
     glowSizeControl.addEventListener('input', updateValueDisplays);
     glowColorControl.addEventListener('change', saveSettings);
     
-    // Modify the createRingWidthControls function to use a scrollable container
+    // Modify the createRingWidthControls function to add solid color options
     function createRingWidthControls() {
         const ringCount = parseInt(ringCountControl.value);
         const container = document.getElementById('individualRingWidths');
@@ -985,6 +1023,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const controlGroup = document.createElement('div');
             controlGroup.className = 'control-group ring-width-control';
             controlGroup.id = `ring${i}WidthControl`;
+            
+            // Create label row with width settings
+            const widthRow = document.createElement('div');
+            widthRow.className = 'ring-control-row';
             
             // Create label
             const label = document.createElement('label');
@@ -1014,20 +1056,67 @@ document.addEventListener('DOMContentLoaded', function() {
                 saveSettings();
             });
             
-            // Assemble control group
-            controlGroup.appendChild(label);
-            controlGroup.appendChild(input);
+            // Assemble width row
+            widthRow.appendChild(label);
+            widthRow.appendChild(input);
+            controlGroup.appendChild(widthRow);
+            
+            // Create solid color row
+            const colorRow = document.createElement('div');
+            colorRow.className = 'ring-control-row';
+            
+            // Create solid color toggle
+            const colorToggleLabel = document.createElement('label');
+            colorToggleLabel.className = 'color-toggle-label';
+            colorToggleLabel.htmlFor = `ring${i}SolidColor`;
+            colorToggleLabel.textContent = 'Solid Color';
+            
+            const colorToggle = document.createElement('input');
+            colorToggle.type = 'checkbox';
+            colorToggle.id = `ring${i}SolidColor`;
+            colorToggle.className = 'ring-solid-toggle';
+            
+            colorToggleLabel.prepend(colorToggle);
+            
+            // Create color selection dropdown
+            const colorSelect = document.createElement('select');
+            colorSelect.id = `ring${i}ColorChoice`;
+            colorSelect.className = 'ring-color-select';
+            colorSelect.disabled = !colorToggle.checked;
+            
+            const primaryOption = document.createElement('option');
+            primaryOption.value = 'primary';
+            primaryOption.textContent = 'Primary';
+            colorSelect.appendChild(primaryOption);
+            
+            const secondaryOption = document.createElement('option');
+            secondaryOption.value = 'secondary';
+            secondaryOption.textContent = 'Secondary';
+            colorSelect.appendChild(secondaryOption);
+            
+            // Add event listeners
+            colorToggle.addEventListener('change', () => {
+                colorSelect.disabled = !colorToggle.checked;
+                saveSettings();
+            });
+            
+            colorSelect.addEventListener('change', saveSettings);
+            
+            // Assemble color row
+            colorRow.appendChild(colorToggleLabel);
+            colorRow.appendChild(colorSelect);
+            controlGroup.appendChild(colorRow);
             
             // Add to scrollable container
             scrollContainer.appendChild(controlGroup);
         }
         
-        // Load individual ring width values from settings
-        loadRingWidthSettings();
+        // Load individual ring settings from storage
+        loadRingSettings();
     }
     
     // Function to load ring width settings
-    function loadRingWidthSettings() {
+    function loadRingSettings() {
         const settingsJson = localStorage.getItem(SETTINGS_KEY);
         if (settingsJson) {
             const settings = JSON.parse(settingsJson);
@@ -1039,6 +1128,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (control && settings.individualRingWidths[i-1]) {
                         control.value = settings.individualRingWidths[i-1];
                         document.getElementById(`ring${i}WidthValue`).textContent = `${control.value}%`;
+                    }
+                }
+            }
+            
+            if (settings.individualRingSolidColors) {
+                for (let i = 1; i <= ringCount; i++) {
+                    const colorToggle = document.getElementById(`ring${i}SolidColor`);
+                    const colorChoice = document.getElementById(`ring${i}ColorChoice`);
+                    
+                    if (colorToggle && settings.individualRingSolidColors[i-1] !== undefined) {
+                        colorToggle.checked = settings.individualRingSolidColors[i-1];
+                    }
+                    
+                    if (colorChoice && settings.individualRingColorChoices[i-1]) {
+                        colorChoice.value = settings.individualRingColorChoices[i-1];
+                        colorChoice.disabled = !colorToggle.checked;
                     }
                 }
             }
@@ -1057,6 +1162,36 @@ document.addEventListener('DOMContentLoaded', function() {
     if (window.innerWidth < 768) {
         controlsContainer.classList.add('collapsed');
     }
+
+    // Add CSS for the new ring color controls
+    const style = document.createElement('style');
+    style.textContent = `
+        .ring-control-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .ring-control-row label {
+            flex: 1;
+            margin-bottom: 0;
+        }
+        
+        .color-toggle-label {
+            display: flex;
+            align-items: center;
+        }
+        
+        .ring-solid-toggle {
+            margin-right: 8px;
+        }
+        
+        .ring-color-select {
+            width: 100px;
+            height: 28px;
+        }
+    `;
+    document.head.appendChild(style);
 });
 
 // Add this helper function for color mixing
