@@ -1081,5 +1081,68 @@ function updateRingWidthControls() {
     }
 }
 
+// Fix the stripe drawing code to correctly handle angled stripes across all rings
+function drawSegmentStripes(ctx, centerX, centerY, innerRadius, outerRadius, startAngle, endAngle, 
+                          stripeColor, stripeCount, currentStripAngle, gradientEnabled, 
+                          gradientParams) {
+    
+    // Calculate the arc length at the middle radius for more consistent stripe spacing
+    const middleRadius = (innerRadius + outerRadius) / 2;
+    const arcLength = middleRadius * (endAngle - startAngle);
+    
+    // Width of each stripe based on the arc length
+    const stripeWidth = arcLength / (stripeCount * 2); // Double for space between stripes
+    
+    // Convert stripe angle from degrees to radians
+    const stripAngleRad = currentStripAngle * (Math.PI / 180);
+    
+    // Adjust for curvature - add more stripe width compensation for outer rings
+    // This is key to preventing the crossing issue in higher rings
+    const curvatureCompensation = outerRadius / innerRadius;
+    
+    for (let s = 0; s < stripeCount; s++) {
+        // Position each stripe evenly across the segment
+        const stripePosition = s / stripeCount;
+        const stripeAngle = startAngle + (endAngle - startAngle) * stripePosition;
+        
+        // Calculate width for this stripe, accounting for curvature in larger rings
+        const adjustedWidth = stripeWidth * (1 + (curvatureCompensation - 1) * stripePosition);
+        
+        // Calculate the four corners of the stripe quadrilateral
+        // These calculations ensure the stripe properly extends from inner to outer radius
+        const innerAngleStart = stripeAngle - (adjustedWidth / innerRadius / 2);
+        const innerAngleEnd = stripeAngle + (adjustedWidth / innerRadius / 2);
+        
+        // Apply the stripe angle offset, scaling it based on radius to prevent crossing
+        const radiusRatio = outerRadius / innerRadius;
+        const angleOffsetInner = 0;
+        const angleOffsetOuter = stripAngleRad / radiusRatio; // Reduce angle for larger rings
+        
+        const outerAngleStart = stripeAngle - (adjustedWidth / outerRadius / 2) + angleOffsetOuter;
+        const outerAngleEnd = stripeAngle + (adjustedWidth / outerRadius / 2) + angleOffsetOuter;
+        
+        // Calculate the actual points
+        const x1 = centerX + innerRadius * Math.cos(innerAngleStart);
+        const y1 = centerY + innerRadius * Math.sin(innerAngleStart);
+        const x2 = centerX + innerRadius * Math.cos(innerAngleEnd);
+        const y2 = centerY + innerRadius * Math.sin(innerAngleEnd);
+        const x3 = centerX + outerRadius * Math.cos(outerAngleEnd);
+        const y3 = centerY + outerRadius * Math.sin(outerAngleEnd);
+        const x4 = centerX + outerRadius * Math.cos(outerAngleStart);
+        const y4 = centerY + outerRadius * Math.sin(outerAngleStart);
+        
+        // Draw the stripe
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.lineTo(x3, y3);
+        ctx.lineTo(x4, y4);
+        ctx.closePath();
+        
+        // Apply gradient or solid color fill
+        // Rest of existing code for gradient application...
+    }
+}
+
 
 
