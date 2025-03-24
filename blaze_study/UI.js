@@ -1,213 +1,148 @@
-// UI.js - Handles user interface interactions
 
-// Controls toggle
-const controlsToggle = document.getElementById('controlsToggle');
-const controlsContainer = document.getElementById('controlsContainer');
+// Get all controls
+const ringCountControl = document.getElementById('ringCount');
+const segmentCountControl = document.getElementById('segmentCount');
+const stripeCountControl = document.getElementById('stripeCount');
+const angleOffsetControl = document.getElementById('angleOffset');
+const rotationSpeedControl = document.getElementById('rotationSpeed');
+const alternateRotationControl = document.getElementById('alternateRotation');
+const colorSchemeControl = document.getElementById('colorScheme');
+const primaryColorControl = document.getElementById('primaryColor');
+const secondaryColorControl = document.getElementById('secondaryColor');
+const customColorGroup = document.getElementById('customColorGroup');
+const stripAngleControl = document.getElementById('stripAngle');
+const alternateStripAnglesControl = document.getElementById('alternateStripAngles');
+const gradientEnabledControl = document.getElementById('gradientEnabled');
+const gradientIntensityControl = document.getElementById('gradientIntensity');
+const edgeBrightnessControl = document.getElementById('edgeBrightness');
+const centerDarknessControl = document.getElementById('centerDarkness');
+const gradientWidthControl = document.getElementById('gradientWidth');
+const gradientControlsDiv = document.getElementById('gradientControls');
+const ringWidthControl = document.getElementById('ringWidth');
+const gradientCurveControl = document.getElementById('gradientCurve');
+const glowEnabledControl = document.getElementById('glowEnabled');
+const glowIntensityControl = document.getElementById('glowIntensity');
+const glowSizeControl = document.getElementById('glowSize');
+const glowColorControl = document.getElementById('glowColor');
+const glowControlsDiv = document.getElementById('glowControls');
 
-// Toggle controls panel when button is clicked
-if (controlsToggle) {
-    controlsToggle.addEventListener('click', () => {
-        controlsContainer.classList.toggle('collapsed');
-    });
-}
+// Get all value displays
+const ringCountValue = document.getElementById('ringCountValue');
+const segmentCountValue = document.getElementById('segmentCountValue');
+const stripeCountValue = document.getElementById('stripeCountValue');
+const angleOffsetValue = document.getElementById('angleOffsetValue');
+const rotationSpeedValue = document.getElementById('rotationSpeedValue');
+const stripAngleValue = document.getElementById('stripAngleValue');
+const gradientIntensityValue = document.getElementById('gradientIntensityValue');
+const edgeBrightnessValue = document.getElementById('edgeBrightnessValue');
+const centerDarknessValue = document.getElementById('centerDarknessValue');
+const gradientWidthValue = document.getElementById('gradientWidthValue');
+const ringWidthValue = document.getElementById('ringWidthValue');
+const glowIntensityValue = document.getElementById('glowIntensityValue');
+const glowSizeValue = document.getElementById('glowSizeValue');
 
-// Function to update all value displays for range inputs
-function updateValueDisplays() {
-    // Basic controls
-    updateValueDisplay('ringCount', 'ringCountValue');
-    updateValueDisplay('segmentCount', 'segmentCountValue');
-    updateValueDisplay('stripeCount', 'stripeCountValue');
-    updateValueDisplay('angleOffset', 'angleOffsetValue', (val) => val);
-    updateValueDisplay('rotationSpeed', 'rotationSpeedValue', (val) => val);
-    updateValueDisplay('stripAngle', 'stripAngleValue', (val) => `${val}°`);
-    updateValueDisplay('ringWidth', 'ringWidthValue', (val) => `${val}%`);
-    
-    // Gradient controls
-    updateValueDisplay('gradientIntensity', 'gradientIntensityValue', (val) => `${val}%`);
-    updateValueDisplay('edgeBrightness', 'edgeBrightnessValue');
-    updateValueDisplay('centerDarkness', 'centerDarknessValue');
-    updateValueDisplay('gradientWidth', 'gradientWidthValue', (val) => parseFloat(val).toFixed(1));
-    
-    // Glow controls
-    updateValueDisplay('glowIntensity', 'glowIntensityValue', (val) => `${val}%`);
-    updateValueDisplay('glowSize', 'glowSizeValue', (val) => parseFloat(val).toFixed(1));
-    
-    // Individual ring controls
-    const ringCount = parseInt(document.getElementById('ringCount')?.value || 0);
-    for (let i = 1; i <= ringCount; i++) {
-        updateValueDisplay(`ring${i}Width`, `ring${i}WidthValue`, (val) => `${val}%`);
-        updateValueDisplay(`ring${i}StripeAngle`, `ring${i}StripeAngleValue`, (val) => `${val}°`);
-        updateValueDisplay(`ring${i}Period`, `ring${i}PeriodValue`, (val) => `${val}s`);
-        updateValueDisplay(`ring${i}WidthPeriod`, `ring${i}WidthPeriodValue`, (val) => `${val}s`);
-        updateValueDisplay(`ring${i}WidthAmplitude`, `ring${i}WidthAmplitudeValue`, (val) => `${val}%`);
-    }
-}
+// Get buttons
+const pausePlayButton = document.getElementById('pausePlay');
+const resetAnimationButton = document.getElementById('resetAnimation');
+const toggleControlsBtn = document.querySelector('.toggle-controls');
+const controlsContainer = document.querySelector('.controls-container');
 
-// Helper function to update a single value display
-function updateValueDisplay(inputId, displayId, formatter = val => val) {
-    const input = document.getElementById(inputId);
-    const display = document.getElementById(displayId);
-    if (input && display) {
-        display.textContent = formatter(input.value);
-    }
-}
 
-// Toggle visibility of related controls based on checkboxes
-function setupToggleVisibility() {
-    // Custom color toggle
-    const colorSchemeControl = document.getElementById('colorScheme');
-    const customColorGroup = document.getElementById('customColorGroup');
-    
-    if (colorSchemeControl && customColorGroup) {
-        const updateCustomColorVisibility = () => {
-            customColorGroup.style.display = 
-                colorSchemeControl.value === 'custom' ? 'block' : 'none';
-        };
-        
-        colorSchemeControl.addEventListener('change', updateCustomColorVisibility);
-        updateCustomColorVisibility(); // Initial state
-    }
-    
-    // Gradient controls toggle
-    const gradientEnabledControl = document.getElementById('gradientEnabled');
-    const gradientControls = document.getElementById('gradientControls');
-    
-    if (gradientEnabledControl && gradientControls) {
-        gradientEnabledControl.addEventListener('change', () => {
-            gradientControls.style.display = 
-                gradientEnabledControl.checked ? 'block' : 'none';
-        });
-        
-        // Initial state
-        gradientControls.style.display = 
-            gradientEnabledControl.checked ? 'block' : 'none';
-    }
-    
-    // Glow controls toggle
-    const glowEnabledControl = document.getElementById('glowEnabled');
-    const glowControls = document.getElementById('glowControls');
-    
-    if (glowEnabledControl && glowControls) {
-        glowEnabledControl.addEventListener('change', () => {
-            glowControls.style.display = 
-                glowEnabledControl.checked ? 'block' : 'none';
-            
-            // Setup WebGL if needed
-            if (glowEnabledControl.checked) {
-                setupWebGL();
-            } else {
-                setupCanvas2D();
-            }
-        });
-        
-        // Initial state
-        glowControls.style.display = 
-            glowEnabledControl.checked ? 'block' : 'none';
-    }
-}
 
-// Create a pause/play button
-function setupAnimationControls() {
-    const pausePlayButton = document.getElementById('pausePlay');
-    const resetButton = document.getElementById('resetAnimation');
-    
-    if (pausePlayButton) {
-        pausePlayButton.addEventListener('click', () => {
-            if (isPaused) {
-                startAnimation();
-                pausePlayButton.textContent = 'Pause';
-            } else {
-                stopAnimation();
-                pausePlayButton.textContent = 'Play';
-            }
-            isPaused = !isPaused;
-        });
-    }
-    
-    if (resetButton) {
-        resetButton.addEventListener('click', () => {
-            // Reset all rotations to 0
-            for (let i = 0; i < ringRotations.length; i++) {
-                ringRotations[i] = 0;
-                ringOscillationPhases[i] = 0;
-            }
-            
-            // If paused, draw once to show reset
-            if (isPaused) {
-                drawBlaze();
-            }
-        });
-    }
-}
 
-// Setup event listeners for all controls
-function setupEventListeners() {
-    // Add event listeners to inputs that need to update value displays
-    const inputsWithValueDisplay = [
-        'ringCount', 'segmentCount', 'stripeCount', 'angleOffset',
-        'rotationSpeed', 'stripAngle', 'ringWidth', 'gradientIntensity',
-        'edgeBrightness', 'centerDarkness', 'gradientWidth',
-        'glowIntensity', 'glowSize'
-    ];
-    
-    inputsWithValueDisplay.forEach(id => {
-        const input = document.getElementById(id);
-        if (input) {
-            input.addEventListener('input', () => {
-                updateValueDisplays();
-                saveSettings();
-            });
-        }
-    });
-    
-    // Add event listeners for checkboxes and selects
-    const otherInputs = [
-        'alternateRotation', 'alternateStripAngles', 'colorScheme',
-        'gradientCurve', 'gradientEnabled', 'glowEnabled',
-        'primaryColor', 'secondaryColor', 'glowColor'
-    ];
-    
-    otherInputs.forEach(id => {
-        const input = document.getElementById(id);
-        if (input) {
-            input.addEventListener('change', saveSettings);
-        }
-    });
-    
-    // Ring Count needs special handling to recreate ring controls
-    const ringCountControl = document.getElementById('ringCount');
-    if (ringCountControl) {
-        ringCountControl.addEventListener('change', () => {
-            createRingWidthControls();
-            initRotations(parseInt(ringCountControl.value));
-        });
-    }
-}
 
-// Initialize UI
-function initializeUI() {
-    // Inject dynamic styles
-    if (typeof injectDynamicStyles === 'function') {
-        injectDynamicStyles();
+// Control panel toggle
+toggleControlsBtn.addEventListener('click', () => {
+    controlsContainer.classList.toggle('collapsed');
+});
+
+// Play/Pause button
+pausePlayButton.addEventListener('click', () => {
+    if (isPaused) {
+        startAnimation();
+    } else {
+        pauseAnimation();
     }
-    
-    // Setup all UI toggles and visibility
-    setupToggleVisibility();
-    
-    // Setup animation controls
-    setupAnimationControls();
-    
-    // Setup all event listeners
-    setupEventListeners();
-    
-    // Initial update of all value displays
+});
+
+// Reset button
+resetAnimationButton.addEventListener('click', resetAnimation);
+
+// Parameter controls
+ringCountControl.addEventListener('input', () => {
     updateValueDisplays();
-    
-    // Auto-collapse controls on mobile
-    if (window.innerWidth < 768) {
-        controlsContainer.classList.add('collapsed');
-    }
-}
+    const newRingCount = parseInt(ringCountControl.value);
+    initRotations(newRingCount);
+    createRingWidthControls();  // Regenerate controls when ring count changes
+});
 
-// Call initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', initializeUI);
+stripeCountControl.addEventListener('input', updateValueDisplays);
+angleOffsetControl.addEventListener('input', updateValueDisplays);
+rotationSpeedControl.addEventListener('input', updateValueDisplays);
+
+alternateRotationControl.addEventListener('change', saveSettings);
+
+colorSchemeControl.addEventListener('change', () => {
+    if (colorSchemeControl.value === 'custom') {
+        customColorGroup.style.display = 'block';
+    } else {
+        customColorGroup.style.display = 'none';
+    }
+    saveSettings();
+});
+
+primaryColorControl.addEventListener('change', saveSettings);
+secondaryColorControl.addEventListener('change', saveSettings);
+
+stripAngleControl.addEventListener('input', updateValueDisplays);
+alternateStripAnglesControl.addEventListener('change', saveSettings);
+
+gradientEnabledControl.addEventListener('change', () => {
+    gradientControlsDiv.style.display = gradientEnabledControl.checked ? 'block' : 'none';
+    saveSettings();
+});
+
+gradientIntensityControl.addEventListener('input', updateValueDisplays);
+edgeBrightnessControl.addEventListener('input', updateValueDisplays);
+centerDarknessControl.addEventListener('input', updateValueDisplays);
+gradientWidthControl.addEventListener('input', updateValueDisplays);
+
+ringWidthControl.addEventListener('input', updateValueDisplays);
+
+gradientCurveControl.addEventListener('change', saveSettings);
+
+glowEnabledControl.addEventListener('change', function() {
+    glowControlsDiv.style.display = glowEnabledControl.checked ? 'block' : 'none';
+    saveSettings();
+    
+    // Initialize WebGL only if all controls are ready
+    if (glowEnabledControl.checked) {
+        // Use setTimeout to ensure this happens after all controls are properly initialized
+        setTimeout(setupWebGL, 0);
+    } else {
+        setupCanvas2D();
+    }
+});
+// Function to update value displays
+function updateValueDisplays() {
+    ringCountValue.textContent = ringCountControl.value;
+    segmentCountValue.textContent = segmentCountControl.value;
+    stripeCountValue.textContent = stripeCountControl.value;
+    angleOffsetValue.textContent = parseFloat(angleOffsetControl.value).toFixed(3);
+    rotationSpeedValue.textContent = parseFloat(rotationSpeedControl.value).toFixed(3);
+    stripAngleValue.textContent = `${stripAngleControl.value}°`;
+    gradientIntensityValue.textContent = `${gradientIntensityControl.value}%`;
+    edgeBrightnessValue.textContent = edgeBrightnessControl.value;
+    centerDarknessValue.textContent = centerDarknessControl.value;
+    gradientWidthValue.textContent = gradientWidthControl.value;
+    ringWidthValue.textContent = `${ringWidthControl.value}%`;
+    glowIntensityValue.textContent = `${glowIntensityControl.value}%`;
+    glowSizeValue.textContent = glowSizeControl.value;
+    
+    // Save settings whenever they change
+    saveSettings();
+}
+segmentCountControl.addEventListener('input', updateValueDisplays);
+glowIntensityControl.addEventListener('input', updateValueDisplays);
+glowSizeControl.addEventListener('input', updateValueDisplays);
+glowColorControl.addEventListener('change', saveSettings);
